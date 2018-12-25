@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <immintrin.h>
 
 // Virtual page size of the current system
 const static std::size_t PageSize = sysconf(_SC_PAGE_SIZE);
@@ -38,6 +39,15 @@ void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 	{
 		for( std::size_t i = 0; i < CurSize; ++i )
 		{
+		#if defined(__BMI2__)
+			OutputBuffer[i] =
+				__builtin_bswap64(
+					_pdep_u64(
+						static_cast<std::uint64_t>(InputBuffer[i]),
+						0x0101010101010101
+					) | 0x3030303030303030
+				);
+		#else
 			OutputBuffer[i] =
 				__builtin_bswap64(
 					(((((
@@ -50,6 +60,7 @@ void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 					>> 7)					 // Shift it back to the low bit of each byte.
 					| 0x3030303030303030UL   // Turn it into ascii '0' and '1'
 			);
+		#endif
 		}
 		write(
 			OutputFile,
