@@ -8,7 +8,7 @@
 // Virtual page size of the current system
 const static std::size_t PageSize = sysconf(_SC_PAGE_SIZE);
 
-void Encode(int InputFile, int OutputFile)
+void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 {
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
 		mmap(
