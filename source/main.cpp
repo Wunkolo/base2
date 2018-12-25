@@ -8,7 +8,7 @@
 // Virtual page size of the current system
 const static std::size_t PageSize = sysconf(_SC_PAGE_SIZE);
 
-int main( int argc, char* argv[] )
+void Encode(int InputFile, int OutputFile)
 {
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
 		mmap(
@@ -33,7 +33,7 @@ int main( int argc, char* argv[] )
 	);
 	std::size_t CurSize = 0;
 	while(
-		(CurSize = read(STDIN_FILENO, InputBuffer, PageSize))
+		(CurSize = read(InputFile, InputBuffer, PageSize))
 	)
 	{
 		for( std::size_t i = 0; i < CurSize; ++i )
@@ -52,12 +52,17 @@ int main( int argc, char* argv[] )
 			);
 		}
 		write(
-			STDOUT_FILENO,
+			OutputFile,
 			OutputBuffer,
 			CurSize * 8
 		);
 	}
 	munmap(InputBuffer ,PageSize    );
 	munmap(OutputBuffer,PageSize * 8);
+}
+
+int main( int argc, char* argv[] )
+{
+	Encode( STDIN_FILENO, STDOUT_FILENO );
 	return EXIT_SUCCESS;
 }
