@@ -11,7 +11,14 @@
 const static std::size_t ByteBuffSize = sysconf(_SC_PAGE_SIZE);
 const static std::size_t AsciiBuffSize = ByteBuffSize * 8;
 
-void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
+struct Settings
+{
+	bool Decode        = false;
+	bool IgnoreInvalid = false;
+	std::size_t Wrap   = 76;
+};
+
+void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile, const Settings& EncodeSettings)
 {
 	// Each byte of input will map to 8 bytes of output
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
@@ -36,10 +43,10 @@ void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 	);
 	std::intmax_t CurRead = 0;
 	while(
-		(CurRead = read(InputFile, InputBuffer, ByteBuffSize))
+		(CurRead = read(InputFile, InputBuffer, ByteBuffSize)) > 0
 	)
 	{
-		for( std::size_t i = 0; i < CurRead; ++i )
+		for( std::size_t i = 0; i < static_cast<std::size_t>(CurRead); ++i )
 		{
 		#if defined(__BMI2__)
 			OutputBuffer[i] =
@@ -96,7 +103,7 @@ std::uint8_t DecodeWord( std::uint64_t BinAscii )
 	return Binary;
 }
 
-void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
+void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile, const Settings& DecodeSettings)
 {
 	// Every 8 bytes of input will map to 1 byte of output
 	std::uint64_t* InputBuffer = static_cast<std::uint64_t*>(
@@ -151,31 +158,24 @@ void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 		);
 	}
 }
-
-struct Settings
-{
-	bool Decode = false;
-	bool IgnoreInvalid = false;
-	std::size_t Wrap = 76;
-};
-
 const static struct option CommandOptions[4] = {
-	{ "decode",         optional_argument, nullptr, 'd'},
-	{ "ignore-garbage", optional_argument, nullptr, 'i'},
-	{ "wrap",           optional_argument, nullptr, 'w'},
-	{ nullptr,                          0, nullptr,  0 }
+	{ "decode",         optional_argument, nullptr,  'd' },
+	{ "ignore-garbage", optional_argument, nullptr,  'i' },
+	{ "wrap",           optional_argument, nullptr,  'w' },
+	{ nullptr,                no_argument, nullptr, '\0' }
 };
 
 int main(int argc, char* argv[])
 {
 	Settings CurSettings = {};
-	int opt;
+	int Opt;
 	int OptionIndex;
-	while( (opt = getopt_long(argc, argv, "diw:", CommandOptions, &OptionIndex )) != -1 )
+	while( (Opt = getopt_long(argc, argv, "diw:", CommandOptions, &OptionIndex )) != -1 )
 	{
-		switch (opt) {
-		case 'd': CurSettings.Decode = true; break;
-		case 'i': CurSettings.IgnoreInvalid = true; break;
+		switch( Opt )
+		{
+		case 'd': CurSettings.Decode = true;            break;
+		case 'i': CurSettings.IgnoreInvalid = true;     break;
 		case 'w': CurSettings.Wrap = std::atoi(optarg); break;
 		default:
 		{
@@ -186,11 +186,11 @@ int main(int argc, char* argv[])
 	}
 	if( CurSettings.Decode )
 	{
-		Decode( STDIN_FILENO, STDOUT_FILENO );
+		Decode( STDIN_FILENO, STDOUT_FILENO, CurSettings );
 	}
 	else
 	{
-		Encode( STDIN_FILENO, STDOUT_FILENO );
+		Encode( STDIN_FILENO, STDOUT_FILENO, CurSettings );
 	}
 	return EXIT_SUCCESS;
 }
