@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <immintrin.h>
 
 // Virtual page size of the current system
@@ -154,22 +155,31 @@ void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 struct Settings
 {
 	bool Decode = false;
+	bool IgnoreInvalid = false;
+	std::size_t Wrap = 76;
+};
+
+const static struct option CommandOptions[4] = {
+	{ "decode",         optional_argument, nullptr, 'd'},
+	{ "ignore-garbage", optional_argument, nullptr, 'i'},
+	{ "wrap",           optional_argument, nullptr, 'w'},
+	{ nullptr,                          0, nullptr,  0 }
 };
 
 int main(int argc, char* argv[])
 {
 	Settings CurSettings = {};
 	int opt;
-	while( (opt = getopt(argc, argv, "d")) != -1 )
+	int OptionIndex;
+	while( (opt = getopt_long(argc, argv, "diw:", CommandOptions, &OptionIndex )) != -1 )
 	{
 		switch (opt) {
-		case 'd':
-		{
-			CurSettings.Decode = true;
-			break;
-		}
+		case 'd': CurSettings.Decode = true; break;
+		case 'i': CurSettings.IgnoreInvalid = true; break;
+		case 'w': CurSettings.Wrap = std::atoi(optarg); break;
 		default:
 		{
+			// TODO: Print usage
 			return EXIT_FAILURE;
 		}
 		}
