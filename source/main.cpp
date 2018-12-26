@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -18,7 +19,11 @@ struct Settings
 	std::size_t Wrap   = 76;
 };
 
-void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile, const Settings& EncodeSettings)
+void Encode(
+	std::uintmax_t InputFile,
+	std::uintmax_t OutputFile,
+	const Settings& EncodeSettings
+)
 {
 	// Each byte of input will map to 8 bytes of output
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
@@ -103,7 +108,15 @@ std::uint8_t DecodeWord( std::uint64_t BinAscii )
 	return Binary;
 }
 
-void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile, const Settings& DecodeSettings)
+// By default, Decode will extract the lowest set bit in a chunk of 8 bytes
+// and compress it down into 1 byte.
+// Even if the input is not '0'(0x30) or '1'(0x31) it will do this unless
+// the settings explicitly say to ignore non-'0''1' garbage bytes.
+void Decode(
+	std::uintmax_t InputFile,
+	std::uintmax_t OutputFile,
+	const Settings& DecodeSettings
+)
 {
 	// Every 8 bytes of input will map to 1 byte of output
 	std::uint64_t* InputBuffer = static_cast<std::uint64_t*>(
@@ -128,15 +141,52 @@ void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile, const Settings&
 	);
 
 	std::size_t ToRead = AsciiBuffSize;
+	// Number of bytes available for actual processing
 	std::intmax_t CurRead = 0;
 	// Process paged-sized batches of input in an attempt to have bulk-amounts of
 	// conversions going on between calls to `read`
-	while( (CurRead = read(InputFile, InputBuffer + (AsciiBuffSize - ToRead), ToRead)) )
+	while(
+		(CurRead = read(
+			InputFile,
+			reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
+			ToRead
+		))
+	)
 	{
 		// Increase total bytes read
-		// TODO: Some validation stuff
+
+		// Validate input
+		if( DecodeSettings.IgnoreInvalid )
+		{
+			for(
+				std::size_t i = (AsciiBuffSize - ToRead);
+				i < (AsciiBuffSize - ToRead + CurRead);
+				++i
+			)
+			{
+				// Find longest chain of garbage bytes from this position
+				std::size_t GarbageLength = 0;
+				while(
+					(reinterpret_cast<std::uint8_t*>(InputBuffer)[i + GarbageLength] & 0xFE) != 0x30
+				) GarbageLength++;
+				// Move the rest of the array up, overlapping the garbage bytes
+				if( GarbageLength < CurRead )
+				{
+					std::memmove(
+						reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
+						reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead) + GarbageLength,
+						CurRead - GarbageLength
+					);
+				}
+				CurRead -= GarbageLength;
+			}
+		}
 		// Process any new groups of 8 bytes that we can
-		for( std::size_t i = (AsciiBuffSize - ToRead) / 8 ; i < (AsciiBuffSize - ToRead + CurRead) / 8 ; ++i )
+		for(
+			std::size_t i = (AsciiBuffSize - ToRead) / 8 ;
+			i < (AsciiBuffSize - ToRead + CurRead) / 8 ;
+			++i
+		)
 		{
 			OutputBuffer[i] = DecodeWord(InputBuffer[i]);
 		}
