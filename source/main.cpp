@@ -151,8 +151,36 @@ void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 	}
 }
 
+struct Settings
+{
+	bool Decode = false;
+};
+
 int main(int argc, char* argv[])
 {
-	Decode( STDIN_FILENO, STDOUT_FILENO );
+	Settings CurSettings = {};
+	int opt;
+	while( (opt = getopt(argc, argv, "d")) != -1 )
+	{
+		switch (opt) {
+		case 'd':
+		{
+			CurSettings.Decode = true;
+			break;
+		}
+		default:
+		{
+			return EXIT_FAILURE;
+		}
+		}
+	}
+	if( CurSettings.Decode )
+	{
+		Decode( STDIN_FILENO, STDOUT_FILENO );
+	}
+	else
+	{
+		Encode( STDIN_FILENO, STDOUT_FILENO );
+	}
 	return EXIT_SUCCESS;
 }
