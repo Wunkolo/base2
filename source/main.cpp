@@ -7,7 +7,8 @@
 #include <immintrin.h>
 
 // Virtual page size of the current system
-const static std::size_t PageSize = sysconf(_SC_PAGE_SIZE);
+const static std::size_t ByteBuffSize = sysconf(_SC_PAGE_SIZE);
+const static std::size_t AsciiBuffSize = ByteBuffSize * 8;
 
 void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 {
@@ -15,7 +16,7 @@ void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
 		mmap(
 			0,
-			PageSize,
+			ByteBuffSize,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS,
 			-1,
@@ -25,19 +26,19 @@ void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 	std::uint64_t* OutputBuffer = static_cast<std::uint64_t*>(
 		mmap(
 			0,
-			PageSize * 8,
+			AsciiBuffSize,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS,
 			-1,
 			0
 		)
 	);
-	std::size_t CurSize = 0;
+	std::intmax_t CurRead = 0;
 	while(
-		(CurSize = read(InputFile, InputBuffer, PageSize))
+		(CurRead = read(InputFile, InputBuffer, ByteBuffSize))
 	)
 	{
-		for( std::size_t i = 0; i < CurSize; ++i )
+		for( std::size_t i = 0; i < CurRead; ++i )
 		{
 		#if defined(__BMI2__)
 			OutputBuffer[i] =
@@ -62,10 +63,36 @@ void Encode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 			);
 		#endif
 		}
-		write(OutputFile,OutputBuffer,CurSize * 8);
+		write(OutputFile, OutputBuffer, CurRead * 8 );
 	}
-	munmap(InputBuffer ,PageSize    );
-	munmap(OutputBuffer,PageSize * 8);
+	munmap(InputBuffer, ByteBuffSize);
+	munmap(OutputBuffer, AsciiBuffSize);
+	if( CurRead < 0 )
+	{
+		std::puts(
+			"Error reading input stream"
+		);
+	}
+}
+
+std::uint8_t DecodeWord( std::uint64_t BinAscii )
+{
+	const std::uint64_t& CurInput = __builtin_bswap64(BinAscii);
+	std::uint8_t Binary = 0;
+#if defined(__BMI2__)
+	Binary = _pext_u64(CurInput,0x0101010101010101);
+#else
+	std::uint64_t Mask = 0x0101010101010101UL;
+	for( std::uint64_t bb = 1UL; Mask != 0; bb += bb)
+	{
+		if( CurInput & Mask & -Mask )
+		{
+			Binary |= bb;
+		}
+		Mask &= (Mask - 1UL);
+	}
+#endif
+	return Binary;
 }
 
 void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
@@ -74,7 +101,7 @@ void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 	std::uint64_t* InputBuffer = static_cast<std::uint64_t*>(
 		mmap(
 			0,
-			PageSize * 8,
+			AsciiBuffSize,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS,
 			-1,
@@ -84,41 +111,44 @@ void Decode(std::uintmax_t InputFile, std::uintmax_t OutputFile)
 	std::uint8_t* OutputBuffer = static_cast<std::uint8_t*>(
 		mmap(
 			0,
-			PageSize,
+			ByteBuffSize,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS,
 			-1,
 			0
 		)
 	);
-	std::size_t CurSize = 0;
-	while(
-		(CurSize = read(InputFile, InputBuffer, PageSize * 8))
-	)
+
+	std::size_t ToRead = AsciiBuffSize;
+	std::intmax_t CurRead = 0;
+	// Process paged-sized batches of input in an attempt to have bulk-amounts of
+	// conversions going on between calls to `read`
+	while( (CurRead = read(InputFile, InputBuffer + (AsciiBuffSize - ToRead), ToRead)) )
 	{
-		for( std::size_t i = 0; i < CurSize / 8 ; ++i )
+		// Increase total bytes read
+		// TODO: Some validation stuff
+		// Process any new groups of 8 bytes that we can
+		for( std::size_t i = (AsciiBuffSize - ToRead) / 8 ; i < (AsciiBuffSize - ToRead + CurRead) / 8 ; ++i )
 		{
-			std::uint8_t CurByte = 0;
-			const std::uint64_t& CurInput = __builtin_bswap64(InputBuffer[i]);
-		#if defined(__BMI2__)
-			CurByte =_pext_u64(CurInput,0x0101010101010101);
-		#else
-			std::uint64_t Mask = 0x0101010101010101UL;
-			for( std::uint64_t bb = 1UL; Mask != 0; bb += bb)
-			{
-				if( CurInput & Mask & -Mask )
-				{
-					CurByte |= bb;
-				}
-				Mask &= (Mask - 1UL);
-			}
-		#endif
-			OutputBuffer[i] = CurByte;
+			OutputBuffer[i] = DecodeWord(InputBuffer[i]);
 		}
-		write(OutputFile,OutputBuffer,CurSize / 8);
+		write(OutputFile,OutputBuffer,CurRead / 8);
+
+		// Set up for next read
+		ToRead -= CurRead; 
+		if( ToRead == 0 )
+		{
+			ToRead = AsciiBuffSize;
+		}
 	}
-	munmap(InputBuffer ,PageSize * 8);
-	munmap(OutputBuffer,PageSize    );
+	munmap(InputBuffer, AsciiBuffSize);
+	munmap(OutputBuffer, ByteBuffSize);
+	if( CurRead < 0 )
+	{
+		std::puts(
+			"Error reading input stream"
+		);
+	}
 }
 
 int main(int argc, char* argv[])
