@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -158,28 +159,17 @@ void Decode(
 		// Validate input
 		if( DecodeSettings.IgnoreInvalid )
 		{
-			for(
-				std::size_t i = (AsciiBuffSize - ToRead);
-				i < (AsciiBuffSize - ToRead + CurRead);
-				++i
-			)
-			{
-				// Find longest chain of garbage bytes from this position
-				std::size_t GarbageLength = 0;
-				while(
-					(reinterpret_cast<std::uint8_t*>(InputBuffer)[i + GarbageLength] & 0xFE) != 0x30
-				) GarbageLength++;
-				// Move the rest of the array up, overlapping the garbage bytes
-				if( GarbageLength < CurRead )
+			const std::uint8_t* NewLast = std::remove_if(
+				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
+				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead),
+				[](const std::uint8_t& CurByte)
 				{
-					std::memmove(
-						reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
-						reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead) + GarbageLength,
-						CurRead - GarbageLength
-					);
+					return (CurByte & 0xFE) != 0x30;
 				}
-				CurRead -= GarbageLength;
-			}
+			);
+			const std::size_t RemovedBytes = 
+				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead) - NewLast;
+			CurRead -= RemovedBytes;
 		}
 		// Process any new groups of 8 bytes that we can
 		for(
