@@ -59,25 +59,31 @@ void Encode(
 				__builtin_bswap64(
 					_pdep_u64(
 						static_cast<std::uint64_t>(InputBuffer[i]),
-						0x0101010101010101
-					) | 0x3030303030303030
+						0x0101010101010101UL
+					) | 0x3030303030303030UL
 				);
 		#else
 			OutputBuffer[i] =
-				__builtin_bswap64(
+				__builtin_bswap64(            // Reverses the order of the ascii bytes
 					(((((
 					static_cast<std::uint64_t>(InputBuffer[i])
-					* 0x0101010101010101UL ) // "broadcast" low byte to all 8 bytes.
-					& 0x8040201008040201UL ) // Mask each byte to have 1 unique bit.
-					+ 0x00406070787C7E7FUL ) // Shift this bit to the last bit of each
-											 // byte using the carry of binary addition.
-					& 0x8080808080808080UL ) // Isolate these last bits of each byte.
-					>> 7)					 // Shift it back to the low bit of each byte.
-					| 0x3030303030303030UL   // Turn it into ascii '0' and '1'
+					* 0x0101010101010101UL	) // "broadcast" low byte to all 8 bytes.
+					& 0x8040201008040201UL	) // Mask each byte to have 1 unique bit.
+					+ 0x00406070787C7E7FUL	) // Shift this bit to the last bit of each
+											  // byte using the carry of binary addition.
+					& 0x8080808080808080UL	) // Isolate these last bits of each byte.
+					>> 7					) // Shift it back to the low bit of each byte.
+					| 0x3030303030303030UL	  // Turn it into ascii '0' and '1'
 			);
 		#endif
 		}
-		write(OutputFile, OutputBuffer, CurRead * 8 );
+		if( write(OutputFile, OutputBuffer, CurRead * 8 ) )
+		{
+			std::fputs(
+				"Error writing to output file",
+				stderr
+			);
+		}
 	}
 	munmap(InputBuffer, ByteBuffSize);
 	munmap(OutputBuffer, AsciiBuffSize);
@@ -89,12 +95,12 @@ void Encode(
 	}
 }
 
-std::uint8_t DecodeWord( std::uint64_t BinAscii )
+inline std::uint8_t DecodeWord( std::uint64_t BinAscii )
 {
 	const std::uint64_t& CurInput = __builtin_bswap64(BinAscii);
 	std::uint8_t Binary = 0;
 #if defined(__BMI2__)
-	Binary = _pext_u64(CurInput,0x0101010101010101);
+	Binary = _pext_u64(CurInput,0x0101010101010101UL);
 #else
 	std::uint64_t Mask = 0x0101010101010101UL;
 	for( std::uint64_t bb = 1UL; Mask != 0; bb += bb)
@@ -154,18 +160,13 @@ void Decode(
 		))
 	)
 	{
-		// Increase total bytes read
-
-		// Validate input
+		// Filter input
 		if( DecodeSettings.IgnoreInvalid )
 		{
 			const std::uint8_t* NewLast = std::remove_if(
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead),
-				[](const std::uint8_t& CurByte)
-				{
-					return (CurByte & 0xFE) != 0x30;
-				}
+				[](const std::uint8_t& CurByte) { return (CurByte & 0xFE) != 0x30; }
 			);
 			const std::size_t RemovedBytes = 
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead) - NewLast;
@@ -180,7 +181,14 @@ void Decode(
 		{
 			OutputBuffer[i] = DecodeWord(InputBuffer[i]);
 		}
-		write(OutputFile,OutputBuffer,CurRead / 8);
+		if( write(OutputFile,OutputBuffer,CurRead / 8) < 0 )
+		{
+			std::fputs(
+				"Error writing to output file",
+				stderr
+			);
+			break;
+		}
 
 		// Set up for next read
 		ToRead -= CurRead; 
