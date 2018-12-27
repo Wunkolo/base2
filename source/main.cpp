@@ -48,36 +48,32 @@ void Encode(
 		)
 	);
 	std::intmax_t CurRead = 0;
-	while(
-		(CurRead = read(InputFile, InputBuffer, ByteBuffSize)) > 0
-	)
+	while( (CurRead = read(InputFile, InputBuffer, ByteBuffSize)) > 0 )
 	{
 		for( std::size_t i = 0; i < static_cast<std::size_t>(CurRead); ++i )
 		{
 		#if defined(__BMI2__)
-			OutputBuffer[i] =
-				__builtin_bswap64(
-					_pdep_u64(
-						static_cast<std::uint64_t>(InputBuffer[i]),
-						0x0101010101010101UL
-					) | 0x3030303030303030UL
-				);
+			OutputBuffer[i] = __builtin_bswap64(
+				_pdep_u64(
+					static_cast<std::uint64_t>(InputBuffer[i]),
+					0x0101010101010101UL
+				) | 0x3030303030303030UL
+			);
 		#else
-			OutputBuffer[i] =
-				__builtin_bswap64(            // Reverses the order of the ascii bytes
-					(((((
-					static_cast<std::uint64_t>(InputBuffer[i])
-					* 0x0101010101010101UL	) // "broadcast" low byte to all 8 bytes.
-					& 0x8040201008040201UL	) // Mask each byte to have 1 unique bit.
-					+ 0x00406070787C7E7FUL	) // Shift this bit to the last bit of each
-											  // byte using the carry of binary addition.
-					& 0x8080808080808080UL	) // Isolate these last bits of each byte.
-					>> 7					) // Shift it back to the low bit of each byte.
-					| 0x3030303030303030UL	  // Turn it into ascii '0' and '1'
+			OutputBuffer[i] = __builtin_bswap64(
+				(((((
+				static_cast<std::uint64_t>(InputBuffer[i])
+				* 0x0101010101010101UL	) // "broadcast" low byte to all 8 bytes.
+				& 0x8040201008040201UL	) // Mask each byte to have 1 unique bit.
+				+ 0x00406070787C7E7FUL	) // Shift this bit to the last bit of each
+										  // byte using the carry of binary addition.
+				& 0x8080808080808080UL	) // Isolate these last bits of each byte.
+				>> 7					) // Shift it back to the low bit of each byte.
+				| 0x3030303030303030UL	  // Turn it into ascii '0' and '1'
 			);
 		#endif
 		}
-		if( write(OutputFile, OutputBuffer, CurRead * 8 ) )
+		if( write(OutputFile, OutputBuffer, CurRead * 8 ) < 0 )
 		{
 			std::fputs(
 				"Error writing to output file",
@@ -103,11 +99,11 @@ inline std::uint8_t DecodeWord( std::uint64_t BinAscii )
 	Binary = _pext_u64(CurInput,0x0101010101010101UL);
 #else
 	std::uint64_t Mask = 0x0101010101010101UL;
-	for( std::uint64_t bb = 1UL; Mask != 0; bb += bb)
+	for( std::uint64_t CurBit = 1UL; Mask != 0; CurBit <<= 1 )
 	{
 		if( CurInput & Mask & -Mask )
 		{
-			Binary |= bb;
+			Binary |= CurBit;
 		}
 		Mask &= (Mask - 1UL);
 	}
@@ -224,7 +220,19 @@ int main(int argc, char* argv[])
 		{
 		case 'd': CurSettings.Decode = true;            break;
 		case 'i': CurSettings.IgnoreInvalid = true;     break;
-		case 'w': CurSettings.Wrap = std::atoi(optarg); break;
+		case 'w':
+		{
+			const std::intmax_t ArgWrap = std::atoi(optarg);
+			if( ArgWrap <= 0 )
+			{
+				std::fputs(
+					"Invalid wrap width",
+					stderr
+				);
+			}
+			CurSettings.Wrap = ArgWrap;
+			break;
+		}
 		default:
 		{
 			// TODO: Print usage
