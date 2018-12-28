@@ -20,7 +20,7 @@ struct Settings
 	std::size_t Wrap   = 76;
 };
 
-void Encode(
+bool Encode(
 	std::FILE* InputFile,
 	std::FILE* OutputFile,
 	const Settings& EncodeSettings
@@ -93,7 +93,9 @@ void Encode(
 			)
 			{
 				std::fputs("Error writing to output file",stderr);
-				break;
+				munmap(InputBuffer, ByteBuffSize);
+				munmap(OutputBuffer, AsciiBuffSize);
+				return EXIT_FAILURE;
 			}
 			std::putc('\n',OutputFile);
 			ToPrint -= CurWidth;
@@ -105,6 +107,7 @@ void Encode(
 	}
 	munmap(InputBuffer, ByteBuffSize);
 	munmap(OutputBuffer, AsciiBuffSize);
+	return EXIT_SUCCESS;
 }
 
 inline std::uint8_t DecodeWord( std::uint64_t BinAscii )
@@ -131,7 +134,7 @@ inline std::uint8_t DecodeWord( std::uint64_t BinAscii )
 // and compress it down into 1 byte.
 // Even if the input is not '0'(0x30) or '1'(0x31) it will do this unless
 // the settings explicitly say to ignore non-'0''1' garbage bytes.
-void Decode(
+bool Decode(
 	std::FILE* InputFile,
 	std::FILE* OutputFile,
 	const Settings& DecodeSettings
@@ -197,7 +200,9 @@ void Decode(
 		if( std::fwrite(OutputBuffer, 1, CurRead / 8, OutputFile) != CurRead / 8 )
 		{
 			std::fputs("Error writing to output file", stderr);
-			break;
+			munmap(InputBuffer, AsciiBuffSize);
+			munmap(OutputBuffer, ByteBuffSize);
+			return EXIT_FAILURE;
 		}
 
 		// Set up for next read
@@ -207,12 +212,14 @@ void Decode(
 			ToRead = AsciiBuffSize;
 		}
 	}
+	munmap(InputBuffer, AsciiBuffSize);
+	munmap(OutputBuffer, ByteBuffSize);
 	if( std::ferror(InputFile) )
 	{
 		std::fputs("Error while reading input file",stderr);
+		return EXIT_FAILURE;
 	}
-	munmap(InputBuffer, AsciiBuffSize);
-	munmap(OutputBuffer, ByteBuffSize);
+	return EXIT_SUCCESS;
 }
 const static struct option CommandOptions[4] = {
 	{ "decode",         optional_argument, nullptr,  'd' },
@@ -250,13 +257,5 @@ int main(int argc, char* argv[])
 		}
 		}
 	}
-	if( CurSettings.Decode )
-	{
-		Decode( stdin, stdout, CurSettings );
-	}
-	else
-	{
-		Encode( stdin, stdout, CurSettings );
-	}
-	return EXIT_SUCCESS;
+	return (CurSettings.Decode ? Decode:Encode)(stdin, stdout, CurSettings);
 }
