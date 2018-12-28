@@ -84,7 +84,7 @@ void Encode(
 				std::fwrite(
 					reinterpret_cast<const char*>(OutputBuffer) + (CurRead * 8 - ToPrint),
 					1,
-					CurWidth,
+					CurWidth ? CurWidth : ToPrint,
 					OutputFile
 				) != CurWidth
 			)
