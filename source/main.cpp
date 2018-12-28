@@ -249,5 +249,17 @@ int main( int argc, char* argv[] )
 		}
 		}
 	}
+	if( optind < argc )
+	{
+		CurSettings.InputFile = fopen(argv[optind],"rb");
+		if( CurSettings.InputFile == nullptr )
+		{
+			std::fprintf(
+				stderr,
+				"Error opening input file: %s\n",
+				argv[optind]
+			);
+		}
+	}
 	return (CurSettings.Decode ? Decode:Encode)(CurSettings);
 }
