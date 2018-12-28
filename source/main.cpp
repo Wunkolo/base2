@@ -21,8 +21,8 @@ struct Settings
 };
 
 void Encode(
-	std::uintmax_t InputFile,
-	std::uintmax_t OutputFile,
+	std::FILE* InputFile,
+	std::FILE* OutputFile,
 	const Settings& EncodeSettings
 )
 {
@@ -47,9 +47,10 @@ void Encode(
 			0
 		)
 	);
-	std::intmax_t CurRead = 0;
-	while( (CurRead = read(InputFile, InputBuffer, ByteBuffSize)) > 0 )
+	std::size_t CurRead = 0;
+	while( (CurRead = std::fread(InputBuffer, 1, ByteBuffSize, InputFile)) )
 	{
+		// Process whatever was read
 		for( std::size_t i = 0; i < static_cast<std::size_t>(CurRead); ++i )
 		{
 		#if defined(__BMI2__)
@@ -73,22 +74,18 @@ void Encode(
 			);
 		#endif
 		}
-		if( write(OutputFile, OutputBuffer, CurRead * 8 ) < 0 )
+		// TODO: wrapped output
+		if( std::fwrite( OutputBuffer, 1, CurRead * 8, OutputFile ) != CurRead * 8 )
 		{
-			std::fputs(
-				"Error writing to output file",
-				stderr
-			);
+			std::fputs("Error writing to output file",stderr);
 		}
+	}
+	if( std::ferror(InputFile) )
+	{
+		std::fputs("Error while reading input file",stderr);
 	}
 	munmap(InputBuffer, ByteBuffSize);
 	munmap(OutputBuffer, AsciiBuffSize);
-	if( CurRead < 0 )
-	{
-		std::puts(
-			"Error reading input stream"
-		);
-	}
 }
 
 inline std::uint8_t DecodeWord( std::uint64_t BinAscii )
@@ -116,8 +113,8 @@ inline std::uint8_t DecodeWord( std::uint64_t BinAscii )
 // Even if the input is not '0'(0x30) or '1'(0x31) it will do this unless
 // the settings explicitly say to ignore non-'0''1' garbage bytes.
 void Decode(
-	std::uintmax_t InputFile,
-	std::uintmax_t OutputFile,
+	std::FILE* InputFile,
+	std::FILE* OutputFile,
 	const Settings& DecodeSettings
 )
 {
@@ -145,14 +142,15 @@ void Decode(
 
 	std::size_t ToRead = AsciiBuffSize;
 	// Number of bytes available for actual processing
-	std::intmax_t CurRead = 0;
+	std::size_t CurRead = 0;
 	// Process paged-sized batches of input in an attempt to have bulk-amounts of
 	// conversions going on between calls to `read`
 	while(
-		(CurRead = read(
-			InputFile,
+		(CurRead = std::fread(
 			reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
-			ToRead
+			1,
+			ToRead,
+			InputFile
 		))
 	)
 	{
@@ -177,12 +175,9 @@ void Decode(
 		{
 			OutputBuffer[i] = DecodeWord(InputBuffer[i]);
 		}
-		if( write(OutputFile,OutputBuffer,CurRead / 8) < 0 )
+		if( std::fwrite(OutputBuffer, 1, CurRead / 8, OutputFile) != CurRead / 8 )
 		{
-			std::fputs(
-				"Error writing to output file",
-				stderr
-			);
+			std::fputs("Error writing to output file", stderr);
 			break;
 		}
 
@@ -193,14 +188,12 @@ void Decode(
 			ToRead = AsciiBuffSize;
 		}
 	}
+	if( std::ferror(InputFile) )
+	{
+		std::fputs("Error while reading input file",stderr);
+	}
 	munmap(InputBuffer, AsciiBuffSize);
 	munmap(OutputBuffer, ByteBuffSize);
-	if( CurRead < 0 )
-	{
-		std::puts(
-			"Error reading input stream"
-		);
-	}
 }
 const static struct option CommandOptions[4] = {
 	{ "decode",         optional_argument, nullptr,  'd' },
@@ -225,10 +218,8 @@ int main(int argc, char* argv[])
 			const std::intmax_t ArgWrap = std::atoi(optarg);
 			if( ArgWrap <= 0 )
 			{
-				std::fputs(
-					"Invalid wrap width",
-					stderr
-				);
+				std::fputs("Invalid wrap width", stderr);
+				return EXIT_FAILURE;
 			}
 			CurSettings.Wrap = ArgWrap;
 			break;
@@ -242,11 +233,11 @@ int main(int argc, char* argv[])
 	}
 	if( CurSettings.Decode )
 	{
-		Decode( STDIN_FILENO, STDOUT_FILENO, CurSettings );
+		Decode( stdin, stdout, CurSettings );
 	}
 	else
 	{
-		Encode( STDIN_FILENO, STDOUT_FILENO, CurSettings );
+		Encode( stdin, stdout, CurSettings );
 	}
 	return EXIT_SUCCESS;
 }
