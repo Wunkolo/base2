@@ -79,12 +79,15 @@ void Encode(
 		std::size_t ToPrint = CurRead * 8;
 		while( ToPrint )
 		{
-			const std::size_t CurWidth = std::min(EncodeSettings.Wrap, ToPrint);
+			const std::size_t CurWidth = std::min(
+				EncodeSettings.Wrap ? EncodeSettings.Wrap:ToPrint,
+				ToPrint
+			);
 			if(
 				std::fwrite(
 					reinterpret_cast<const char*>(OutputBuffer) + (CurRead * 8 - ToPrint),
 					1,
-					CurWidth ? CurWidth : ToPrint,
+					CurWidth,
 					OutputFile
 				) != CurWidth
 			)
@@ -232,7 +235,7 @@ int main(int argc, char* argv[])
 		case 'w':
 		{
 			const std::intmax_t ArgWrap = std::atoi(optarg);
-			if( ArgWrap <= 0 )
+			if( ArgWrap < 0 )
 			{
 				std::fputs("Invalid wrap width", stderr);
 				return EXIT_FAILURE;
