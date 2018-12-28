@@ -47,9 +47,11 @@ void Encode(
 			0
 		)
 	);
+	std::size_t Sum = 0;
 	std::size_t CurRead = 0;
 	while( (CurRead = std::fread(InputBuffer, 1, ByteBuffSize, InputFile)) )
 	{
+		Sum += CurRead;
 		// Process whatever was read
 		for( std::size_t i = 0; i < static_cast<std::size_t>(CurRead); ++i )
 		{
@@ -74,10 +76,24 @@ void Encode(
 			);
 		#endif
 		}
-		// TODO: wrapped output
-		if( std::fwrite( OutputBuffer, 1, CurRead * 8, OutputFile ) != CurRead * 8 )
+		std::size_t ToPrint = CurRead * 8;
+		while( ToPrint )
 		{
-			std::fputs("Error writing to output file",stderr);
+			const std::size_t CurWidth = std::min(EncodeSettings.Wrap, ToPrint);
+			if(
+				std::fwrite(
+					reinterpret_cast<const char*>(OutputBuffer) + (CurRead * 8 - ToPrint),
+					1,
+					CurWidth,
+					OutputFile
+				) != CurWidth
+			)
+			{
+				std::fputs("Error writing to output file",stderr);
+				break;
+			}
+			std::putc('\n',OutputFile);
+			ToPrint -= CurWidth;
 		}
 	}
 	if( std::ferror(InputFile) )
