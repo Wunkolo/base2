@@ -15,16 +15,14 @@ const static std::size_t AsciiBuffSize = ByteBuffSize * 8;
 
 struct Settings
 {
+	std::FILE* InputFile = stdin;
+	std::FILE* OutputFile = stdout;
 	bool Decode        = false;
 	bool IgnoreInvalid = false;
 	std::size_t Wrap   = 76;
 };
 
-bool Encode(
-	std::FILE* InputFile,
-	std::FILE* OutputFile,
-	const Settings& EncodeSettings
-)
+bool Encode( const Settings& Settings )
 {
 	// Each byte of input will map to 8 bytes of output
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
@@ -47,11 +45,9 @@ bool Encode(
 			0
 		)
 	);
-	std::size_t Sum = 0;
 	std::size_t CurRead = 0;
-	while( (CurRead = std::fread(InputBuffer, 1, ByteBuffSize, InputFile)) )
+	while( (CurRead = std::fread(InputBuffer, 1, ByteBuffSize, Settings.InputFile)) )
 	{
-		Sum += CurRead;
 		// Process whatever was read
 		for( std::size_t i = 0; i < static_cast<std::size_t>(CurRead); ++i )
 		{
@@ -80,7 +76,7 @@ bool Encode(
 		while( ToPrint )
 		{
 			const std::size_t CurWidth = std::min(
-				EncodeSettings.Wrap ? EncodeSettings.Wrap:ToPrint,
+				Settings.Wrap ? Settings.Wrap:ToPrint,
 				ToPrint
 			);
 			if(
@@ -88,7 +84,7 @@ bool Encode(
 					reinterpret_cast<const char*>(OutputBuffer) + (CurRead * 8 - ToPrint),
 					1,
 					CurWidth,
-					OutputFile
+					Settings.OutputFile
 				) != CurWidth
 			)
 			{
@@ -97,11 +93,11 @@ bool Encode(
 				munmap(OutputBuffer, AsciiBuffSize);
 				return EXIT_FAILURE;
 			}
-			std::putc('\n',OutputFile);
+			std::putc('\n',Settings.OutputFile);
 			ToPrint -= CurWidth;
 		}
 	}
-	if( std::ferror(InputFile) )
+	if( std::ferror(Settings.InputFile) )
 	{
 		std::fputs("Error while reading input file",stderr);
 	}
@@ -134,11 +130,7 @@ inline std::uint8_t DecodeWord( std::uint64_t BinAscii )
 // and compress it down into 1 byte.
 // Even if the input is not '0'(0x30) or '1'(0x31) it will do this unless
 // the settings explicitly say to ignore non-'0''1' garbage bytes.
-bool Decode(
-	std::FILE* InputFile,
-	std::FILE* OutputFile,
-	const Settings& DecodeSettings
-)
+bool Decode( const Settings& Settings )
 {
 	// Every 8 bytes of input will map to 1 byte of output
 	std::uint64_t* InputBuffer = static_cast<std::uint64_t*>(
@@ -172,12 +164,12 @@ bool Decode(
 			reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
 			1,
 			ToRead,
-			InputFile
+			Settings.InputFile
 		))
 	)
 	{
 		// Filter input
-		if( DecodeSettings.IgnoreInvalid )
+		if( Settings.IgnoreInvalid )
 		{
 			const std::uint8_t* NewLast = std::remove_if(
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
@@ -197,7 +189,7 @@ bool Decode(
 		{
 			OutputBuffer[i] = DecodeWord(InputBuffer[i]);
 		}
-		if( std::fwrite(OutputBuffer, 1, CurRead / 8, OutputFile) != CurRead / 8 )
+		if( std::fwrite(OutputBuffer, 1, CurRead / 8, Settings.OutputFile) != CurRead / 8 )
 		{
 			std::fputs("Error writing to output file", stderr);
 			munmap(InputBuffer, AsciiBuffSize);
@@ -214,7 +206,7 @@ bool Decode(
 	}
 	munmap(InputBuffer, AsciiBuffSize);
 	munmap(OutputBuffer, ByteBuffSize);
-	if( std::ferror(InputFile) )
+	if( std::ferror(Settings.InputFile) )
 	{
 		std::fputs("Error while reading input file",stderr);
 		return EXIT_FAILURE;
@@ -228,7 +220,7 @@ const static struct option CommandOptions[4] = {
 	{ nullptr,                no_argument, nullptr, '\0' }
 };
 
-int main(int argc, char* argv[])
+int main( int argc, char* argv[] )
 {
 	Settings CurSettings = {};
 	int Opt;
@@ -257,5 +249,5 @@ int main(int argc, char* argv[])
 		}
 		}
 	}
-	return (CurSettings.Decode ? Decode:Encode)(stdin, stdout, CurSettings);
+	return (CurSettings.Decode ? Decode:Encode)(CurSettings);
 }
