@@ -22,6 +22,43 @@ struct Settings
 	std::size_t Wrap   = 76;
 };
 
+std::size_t WrapWrite(
+	const char* Buffer,
+	std::size_t Length,
+	std::size_t WrapWidth,
+	std::FILE* OutputFile,
+	std::size_t CurrentColumn = 0
+)
+{
+	if( WrapWidth == 0 )
+	{
+		return std::fwrite(Buffer, 1, Length, OutputFile);
+	}
+	else
+	{
+		for( std::size_t Written = 0; Written < Length; )
+		{
+			const std::size_t ColumnsRemaining = WrapWidth - CurrentColumn;
+			const std::size_t ToWrite = std::min(
+				ColumnsRemaining,
+				Length - Written
+			);
+			if( ToWrite == 0)
+			{
+				std::fputc('\n',OutputFile);
+				CurrentColumn = 0;
+			}
+			else
+			{
+				std::fwrite(Buffer + Written, 1, ToWrite, OutputFile);
+				CurrentColumn += ToWrite;
+				Written += ToWrite;
+			}
+		}
+		return CurrentColumn;
+	}
+}
+
 bool Encode( const Settings& Settings )
 {
 	// Each byte of input will map to 8 bytes of output
@@ -45,6 +82,7 @@ bool Encode( const Settings& Settings )
 			0
 		)
 	);
+	std::size_t CurrentColumn = 0;
 	std::size_t CurRead = 0;
 	while( (CurRead = std::fread(InputBuffer, 1, ByteBuffSize, Settings.InputFile)) )
 	{
@@ -72,30 +110,13 @@ bool Encode( const Settings& Settings )
 			);
 		#endif
 		}
-		std::size_t ToPrint = CurRead * 8;
-		while( ToPrint )
-		{
-			const std::size_t CurWidth = std::min(
-				Settings.Wrap ? Settings.Wrap:ToPrint,
-				ToPrint
-			);
-			if(
-				std::fwrite(
-					reinterpret_cast<const char*>(OutputBuffer) + (CurRead * 8 - ToPrint),
-					1,
-					CurWidth,
-					Settings.OutputFile
-				) != CurWidth
-			)
-			{
-				std::fputs("Error writing to output file",stderr);
-				munmap(InputBuffer, ByteBuffSize);
-				munmap(OutputBuffer, AsciiBuffSize);
-				return EXIT_FAILURE;
-			}
-			std::putc('\n',Settings.OutputFile);
-			ToPrint -= CurWidth;
-		}
+		CurrentColumn = WrapWrite(
+			reinterpret_cast<const char*>(OutputBuffer),
+			CurRead * 8,
+			Settings.Wrap,
+			Settings.OutputFile,
+			CurrentColumn
+		);
 	}
 	if( std::ferror(Settings.InputFile) )
 	{
@@ -213,6 +234,7 @@ bool Decode( const Settings& Settings )
 	}
 	return EXIT_SUCCESS;
 }
+
 const static struct option CommandOptions[4] = {
 	{ "decode",         optional_argument, nullptr,  'd' },
 	{ "ignore-garbage", optional_argument, nullptr,  'i' },
