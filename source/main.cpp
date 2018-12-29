@@ -7,7 +7,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <getopt.h>
+
+#if defined(__BMI2__)
 #include <immintrin.h>
+#endif
 
 // Virtual page size of the current system
 const static std::size_t ByteBuffSize = sysconf(_SC_PAGE_SIZE);
