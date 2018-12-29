@@ -5,8 +5,15 @@ In the same spirit as the gnu coreutils software [base64](https://www.gnu.org/so
 Because I was bored.
 
 ```
-base2 [Options]... [File]
-base2 --decode [Options]... [File]
+base2 - Wunkolo <wunkolo@gmail.com>
+Usage: base2 [Options]... [File]
+       base2 --decode [Options]... [File]
+Options:
+  -h, --help            Display this help/usage information
+  -d, --decode          Decode's incoming binary ascii into bytes
+  -i, --ignore-garbage  When decoding, ignores non-ascii-binary `0`, `1` bytes
+  -w, --wrap=Columns    Wrap encoded binary output within columns
+                        Default is `76`. `0` Disables linewrapping
 ```
 ---
 Encoding:
@@ -22,7 +29,6 @@ Encoding:
 01011001                          # 'Y'
 00001010                          # '\n'
 ```
----
 Decoding:
 ```
 % base2 -d <<< '01010001010101110100010101010010010101000101100100001010'
@@ -34,25 +40,3 @@ QWFz*J�B
 101011101000garbage1010blah101001001010garbage1000101100100001010'
 QWERTY
 ```
----
-Options:
-```
--w columns
--wrap=cols
-```
-
-When encoding, wraps lines after "cols" characters. "Cols" must be a positive number.
-Defaults to `76` characters. A value of `0` disables wrapping altogether.
-
-```
--d
---decode
-```
-Decodes incoming ascii-binary characters into individual bytes
-
-```
--i
---ignore-garbage
-```
-
-When decoding, ignores all non-ascii-binary `0`, `1` bytes

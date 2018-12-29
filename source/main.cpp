@@ -235,10 +235,22 @@ bool Decode( const Settings& Settings )
 	return EXIT_SUCCESS;
 }
 
-const static struct option CommandOptions[4] = {
+const char* Usage = 
+"base2 - Wunkolo <wunkolo@gmail.com>\n"
+"Usage: base2 [Options]... [File]\n"
+"       base2 --decode [Options]... [File]\n"
+"Options:\n"
+"  -h, --help            Display this help/usage information\n"
+"  -d, --decode          Decodes incoming binary ascii into bytes\n"
+"  -i, --ignore-garbage  When decoding, ignores non-ascii-binary `0`, `1` bytes\n"
+4"  -w, --wrap=Columns    Wrap encoded binary output within columns\n"
+"                        Default is `76`. `0` Disables linewrapping\n";
+
+const static struct option CommandOptions[5] = {
 	{ "decode",         optional_argument, nullptr,  'd' },
 	{ "ignore-garbage", optional_argument, nullptr,  'i' },
 	{ "wrap",           optional_argument, nullptr,  'w' },
+	{ "help",           optional_argument, nullptr,  'h' },
 	{ nullptr,                no_argument, nullptr, '\0' }
 };
 
@@ -247,7 +259,7 @@ int main( int argc, char* argv[] )
 	Settings CurSettings = {};
 	int Opt;
 	int OptionIndex;
-	while( (Opt = getopt_long(argc, argv, "diw:", CommandOptions, &OptionIndex )) != -1 )
+	while( (Opt = getopt_long(argc, argv, "hdiw:", CommandOptions, &OptionIndex )) != -1 )
 	{
 		switch( Opt )
 		{
@@ -264,23 +276,30 @@ int main( int argc, char* argv[] )
 			CurSettings.Wrap = ArgWrap;
 			break;
 		}
+		case 'h':
+		{
+			std::puts(Usage);
+			return EXIT_SUCCESS;
+		}
 		default:
 		{
-			// TODO: Print usage
 			return EXIT_FAILURE;
 		}
 		}
 	}
 	if( optind < argc )
 	{
-		CurSettings.InputFile = fopen(argv[optind],"rb");
-		if( CurSettings.InputFile == nullptr )
+		if( std::strcmp(argv[optind],"-") != 0 )
 		{
-			std::fprintf(
-				stderr,
-				"Error opening input file: %s\n",
-				argv[optind]
-			);
+			CurSettings.InputFile = fopen(argv[optind],"rb");
+			if( CurSettings.InputFile == nullptr )
+			{
+				std::fprintf(
+					stderr,
+					"Error opening input file: %s\n",
+					argv[optind]
+				);
+			}
 		}
 	}
 	return (CurSettings.Decode ? Decode:Encode)(CurSettings);
