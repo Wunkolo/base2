@@ -243,7 +243,7 @@ const char* Usage =
 "  -h, --help            Display this help/usage information\n"
 "  -d, --decode          Decodes incoming binary ascii into bytes\n"
 "  -i, --ignore-garbage  When decoding, ignores non-ascii-binary `0`, `1` bytes\n"
-4"  -w, --wrap=Columns    Wrap encoded binary output within columns\n"
+"  -w, --wrap=Columns    Wrap encoded binary output within columns\n"
 "                        Default is `76`. `0` Disables linewrapping\n";
 
 const static struct option CommandOptions[5] = {
