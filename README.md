@@ -40,3 +40,25 @@ QWFz*J�B
 101011101000garbage1010blah101001001010garbage1000101100100001010'
 QWERTY
 ```
+
+---
+
+Did I mention its fast:
+
+```
+inxi -C
+CPU:       Topology: Dual Core model: Intel Core i3-6100 bits: 64 type: MT MCP L2 cache: 3072 KiB 
+           Speed: 3700 MHz min/max: 800/3700 MHz Core speeds (MHz): 1: 3700 2: 3700 3: 3700 4: 3700 
+```
+
+Generic:
+```
+./base2 --wrap=0 /dev/urandom | pv > /dev/null
+	47GiB 0:00:10 [ 656MiB/s]
+```
+
+BMI2
+```
+./base2 --wrap=0 /dev/urandom | pv > /dev/null
+	60GiB 0:00:10 [ 787MiB/s]
+```
