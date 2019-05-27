@@ -18,11 +18,11 @@ const static std::size_t AsciiBuffSize = ByteBuffSize * 8;
 
 struct Settings
 {
-	std::FILE* InputFile = stdin;
+	std::FILE* InputFile  = stdin;
 	std::FILE* OutputFile = stdout;
-	bool Decode        = false;
-	bool IgnoreInvalid = false;
-	std::size_t Wrap   = 76;
+	bool Decode           = false;
+	bool IgnoreInvalid    = false;
+	std::size_t Wrap      = 76;
 };
 
 std::size_t WrapWrite(
@@ -37,29 +37,26 @@ std::size_t WrapWrite(
 	{
 		return std::fwrite(Buffer, 1, Length, OutputFile);
 	}
-	else
+	for( std::size_t Written = 0; Written < Length; )
 	{
-		for( std::size_t Written = 0; Written < Length; )
+		const std::size_t ColumnsRemaining = WrapWidth - CurrentColumn;
+		const std::size_t ToWrite = std::min(
+			ColumnsRemaining,
+			Length - Written
+		);
+		if( ToWrite == 0)
 		{
-			const std::size_t ColumnsRemaining = WrapWidth - CurrentColumn;
-			const std::size_t ToWrite = std::min(
-				ColumnsRemaining,
-				Length - Written
-			);
-			if( ToWrite == 0)
-			{
-				std::fputc('\n',OutputFile);
-				CurrentColumn = 0;
-			}
-			else
-			{
-				std::fwrite(Buffer + Written, 1, ToWrite, OutputFile);
-				CurrentColumn += ToWrite;
-				Written += ToWrite;
-			}
+			std::fputc('\n',OutputFile);
+			CurrentColumn = 0;
 		}
-		return CurrentColumn;
+		else
+		{
+			std::fwrite(Buffer + Written, 1, ToWrite, OutputFile);
+			CurrentColumn += ToWrite;
+			Written += ToWrite;
+		}
 	}
+	return CurrentColumn;
 }
 
 bool Encode( const Settings& Settings )
@@ -67,22 +64,18 @@ bool Encode( const Settings& Settings )
 	// Each byte of input will map to 8 bytes of output
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
 		mmap(
-			0,
-			ByteBuffSize,
+			0, ByteBuffSize,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS,
-			-1,
-			0
+			-1, 0
 		)
 	);
 	std::uint64_t* OutputBuffer = static_cast<std::uint64_t*>(
 		mmap(
-			0,
-			AsciiBuffSize,
+			0, AsciiBuffSize,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS,
-			-1,
-			0
+			-1, 0
 		)
 	);
 	std::size_t CurrentColumn = 0;
@@ -90,7 +83,13 @@ bool Encode( const Settings& Settings )
 	while( (CurRead = std::fread(InputBuffer, 1, ByteBuffSize, Settings.InputFile)) )
 	{
 		// Process whatever was read
-		for( std::size_t i = 0; i < static_cast<std::size_t>(CurRead); ++i )
+		std::size_t i = 0;
+		// TODO: Vectorized versions for SSE, AVX, etc
+		// Sun 26 May 2019 11:00:23 PM PDT
+		// for( std::size_t j = i/N; i < CurRead/N; ++j, i += N )
+		// {
+		// }
+		for( ; i < CurRead; ++i )
 		{
 		#if defined(__BMI2__)
 			OutputBuffer[i] = __builtin_bswap64(
@@ -114,18 +113,15 @@ bool Encode( const Settings& Settings )
 		#endif
 		}
 		CurrentColumn = WrapWrite(
-			reinterpret_cast<const char*>(OutputBuffer),
-			CurRead * 8,
-			Settings.Wrap,
-			Settings.OutputFile,
-			CurrentColumn
+			reinterpret_cast<const char*>(OutputBuffer), CurRead * 8,
+			Settings.Wrap, Settings.OutputFile, CurrentColumn
 		);
 	}
 	if( std::ferror(Settings.InputFile) )
 	{
 		std::fputs("Error while reading input file",stderr);
 	}
-	munmap(InputBuffer, ByteBuffSize);
+	munmap(InputBuffer,  ByteBuffSize);
 	munmap(OutputBuffer, AsciiBuffSize);
 	return EXIT_SUCCESS;
 }
@@ -159,22 +155,18 @@ bool Decode( const Settings& Settings )
 	// Every 8 bytes of input will map to 1 byte of output
 	std::uint64_t* InputBuffer = static_cast<std::uint64_t*>(
 		mmap(
-			0,
-			AsciiBuffSize,
+			0, AsciiBuffSize,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS,
-			-1,
-			0
+			-1, 0
 		)
 	);
 	std::uint8_t* OutputBuffer = static_cast<std::uint8_t*>(
 		mmap(
-			0,
-			ByteBuffSize,
+			0, ByteBuffSize,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS,
-			-1,
-			0
+			-1, 0
 		)
 	);
 
@@ -186,9 +178,7 @@ bool Decode( const Settings& Settings )
 	while(
 		(CurRead = std::fread(
 			reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
-			1,
-			ToRead,
-			Settings.InputFile
+			1, ToRead, Settings.InputFile
 		))
 	)
 	{
