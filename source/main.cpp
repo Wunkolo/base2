@@ -92,7 +92,7 @@ bool Encode( const Settings& Settings )
 		for( std::size_t j = i / 4; j < CurRead / 4; ++j, i += 4 )
 		{
 			#if defined(__AVX2__)
-			__m256i Result = _mm256_set1_epi32x(
+			__m256i Result = _mm256_set1_epi32(
 				*reinterpret_cast<const std::uint32_t*>(&InputBuffer[i])
 			);
 			// Broadcast each byte to each 64-bit lane
