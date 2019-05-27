@@ -99,12 +99,12 @@ bool Encode( const Settings& Settings )
 				) | 0x3030303030303030UL
 			);
 		#else
-			OutputBuffer[i] = __builtin_bswap64(
+			OutputBuffer[i] = (
 				(((((
 				static_cast<std::uint64_t>(InputBuffer[i])
 				* 0x0101010101010101UL	) // "broadcast" low byte to all 8 bytes.
-				& 0x8040201008040201UL	) // Mask each byte to have 1 unique bit.
-				+ 0x00406070787C7E7FUL	) // Shift this bit to the last bit of each
+				& 0x0102040810204080UL	) // Mask each byte to have 1 unique bit.
+				+ 0x7F7E7C7870604000UL	) // Shift this bit to the last bit of each
 										  // byte using the carry of binary addition.
 				& 0x8080808080808080UL	) // Isolate these last bits of each byte.
 				>> 7					) // Shift it back to the low bit of each byte.
