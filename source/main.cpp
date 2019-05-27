@@ -8,8 +8,12 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#if defined(__BMI2__)
-#include <immintrin.h>
+
+// x86
+#if defined(__x86_64__) || defined(_M_X64)
+#include <x86intrin.h>
+#else
+// TODO: ARM
 #endif
 
 // Virtual page size of the current system
@@ -84,11 +88,78 @@ bool Encode( const Settings& Settings )
 	{
 		// Process whatever was read
 		std::size_t i = 0;
-		// TODO: Vectorized versions for SSE, AVX, etc
-		// Sun 26 May 2019 11:00:23 PM PDT
-		// for( std::size_t j = i/N; i < CurRead/N; ++j, i += N )
-		// {
-		// }
+		// Four at a time
+		for( std::size_t j = i / 4; j < CurRead / 4; ++j, i += 4 )
+		{
+			#if defined(__AVX2__)
+			__m256i Result = _mm256_set1_epi64x(
+				*reinterpret_cast<const std::uint32_t*>(&InputBuffer[i])
+			);
+			// Broadcast each byte to each 64-bit lane
+			Result = _mm256_shuffle_epi8(
+				Result,
+				_mm256_set_epi64x(
+					0x0101010101010101UL * 3,
+					0x0101010101010101UL * 2,
+					0x0101010101010101UL * 1,
+					0x0101010101010101UL * 0
+				)
+			);
+			// Mask Unique bits per byte
+			Result = _mm256_and_si256(
+				Result, _mm256_set1_epi64x(0x0102040810204080UL)
+			);
+			// Use the carry-bit to slide it to the far left
+			Result = _mm256_add_epi64(
+				Result, _mm256_set1_epi64x(0x7F7E7C7870604000UL)
+			);
+			// Mask this last bit
+			Result = _mm256_and_si256(
+				Result, _mm256_set1_epi64x(0x8080808080808080UL)
+			);
+			// Shift it to the low bit of each byte
+			Result = _mm256_srli_epi64(Result, 7);
+			// Convert it to ascii `0` and `1`
+			Result = _mm256_or_si256(
+				Result, _mm256_set1_epi64x(0x3030303030303030UL)
+			);
+			_mm256_storeu_si256(
+				reinterpret_cast<__m256i*>(&OutputBuffer[i]), Result
+			);
+			#endif
+		}
+		// Two at a time
+		for( std::size_t j = i / 2; j < CurRead / 2; ++j, i += 2 )
+		{
+			#if defined(__SSE2__)
+			__m128i Result = _mm_set_epi64x(
+				0x0101010101010101UL * static_cast<std::uint64_t>(InputBuffer[i + 1]),
+				0x0101010101010101UL * static_cast<std::uint64_t>(InputBuffer[i + 0])
+			);
+			// Mask Unique bits per byte
+			Result = _mm_and_si128(
+				Result, _mm_set1_epi64x(0x0102040810204080UL)
+			);
+			// Use the carry-bit to slide it to the far left
+			Result = _mm_add_epi64(
+				Result, _mm_set1_epi64x(0x7F7E7C7870604000UL)
+			);
+			// Mask this last bit
+			Result = _mm_and_si128(
+				Result, _mm_set1_epi64x(0x8080808080808080UL)
+			);
+			// Shift it to the low bit of each byte
+			Result = _mm_srli_epi64(Result, 7);
+			// Convert it to ascii `0` and `1`
+			Result = _mm_or_si128(
+				Result, _mm_set1_epi64x(0x3030303030303030UL)
+			);
+			_mm_store_si128(
+				reinterpret_cast<__m128i*>(&OutputBuffer[i]), Result
+			);
+			#endif
+		}
+		// One at a time
 		for( ; i < CurRead; ++i )
 		{
 		#if defined(__BMI2__)
