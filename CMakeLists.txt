@@ -20,7 +20,13 @@ enable_testing()
 # Benchmarks
 add_executable(
 	base2
+	source/Base2.cpp
 	source/main.cpp
+)
+target_include_directories(
+	base2
+	PRIVATE
+	include
 )
 set_target_properties(
 	base2

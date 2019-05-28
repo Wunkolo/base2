@@ -8,13 +8,9 @@
 #include <unistd.h>
 #include <getopt.h>
 
-
-// x86
-#if defined(__x86_64__) || defined(_M_X64)
 #include <x86intrin.h>
-#else
-// TODO: ARM
-#endif
+
+#include <Base2.hpp>
 
 // Virtual page size of the current system
 const static std::size_t ByteBuffSize = sysconf(_SC_PAGE_SIZE);
@@ -84,99 +80,9 @@ bool Encode( const Settings& Settings )
 	);
 	std::size_t CurrentColumn = 0;
 	std::size_t CurRead = 0;
-	// Some popular constants
-	// Least significant bit in an 8-bit integer
-	constexpr std::uint64_t LSB8       = 0x0101010101010101UL;
-	// Each byte has a unique bit set
-	constexpr std::uint64_t UniqueBit  = 0x0102040810204080UL;
-	// Shifts unique bits to the left, using the carry of binary addition
-	constexpr std::uint64_t CarryShift = 0x7F7E7C7870604000UL;
-	// Most significant bit in an 8-bit integer
-	constexpr std::uint64_t MSB8       = LSB8 << 7u;
-	// Constant bits for ascii '0' and '1'
-	constexpr std::uint64_t BinAsciiBasis = LSB8 * '0';
 	while( (CurRead = std::fread(InputBuffer, 1, ByteBuffSize, Settings.InputFile)) )
 	{
-		// Process whatever was read
-		std::size_t i = 0;
-
-		// Four at a time
-		#if defined(__AVX2__)
-		for( std::size_t j = i / 4; j < CurRead / 4; ++j, i += 4 )
-		{
-			__m256i Result = _mm256_set1_epi32(
-				*reinterpret_cast<const std::uint32_t*>(&InputBuffer[i])
-			);
-			// Broadcast each byte to each 64-bit lane
-			Result = _mm256_shuffle_epi8(
-				Result,
-				_mm256_set_epi64x(LSB8 * 3, LSB8 * 2, LSB8 * 1, LSB8 * 0)
-			);
-			// Mask Unique bits per byte
-			Result = _mm256_and_si256(Result, _mm256_set1_epi64x(UniqueBit));
-			// Use the carry-bit to slide it to the far left
-			Result = _mm256_add_epi64(Result, _mm256_set1_epi64x(CarryShift));
-			// Mask this last bit
-			Result = _mm256_and_si256(Result, _mm256_set1_epi64x(MSB8));
-			// Shift it to the low bit of each byte
-			Result = _mm256_srli_epi64(Result, 7);
-			// Convert it to ascii `0` and `1`
-			Result = _mm256_or_si256(
-				Result, _mm256_set1_epi64x(BinAsciiBasis)
-			);
-			_mm256_storeu_si256(
-				reinterpret_cast<__m256i*>(&OutputBuffer[i]), Result
-			);
-		}
-		#endif
-
-		// Two at a time
-		#if defined(__SSE2__)
-		for( std::size_t j = i / 2; j < CurRead / 2; ++j, i += 2 )
-		{
-			__m128i Result = _mm_set_epi64x(
-				LSB8 * static_cast<std::uint64_t>(InputBuffer[i + 1]),
-				LSB8 * static_cast<std::uint64_t>(InputBuffer[i + 0])
-			);
-			// Mask Unique bits per byte
-			Result = _mm_and_si128(Result, _mm_set1_epi64x(UniqueBit));
-			// Use the carry-bit to slide it to the far left
-			Result = _mm_add_epi64(Result, _mm_set1_epi64x(CarryShift));
-			// Mask this last bit
-			Result = _mm_and_si128(Result, _mm_set1_epi64x(MSB8));
-			// Shift it to the low bit of each byte
-			Result = _mm_srli_epi64(Result, 7);
-			// Convert it to ascii `0` and `1`
-			Result = _mm_or_si128(Result, _mm_set1_epi64x(BinAsciiBasis));
-			_mm_store_si128(
-				reinterpret_cast<__m128i*>(&OutputBuffer[i]), Result
-			);
-		}
-		#endif
-
-		// One at a time
-		for( ; i < CurRead; ++i )
-		{
-		#if defined(__BMI2__)
-			OutputBuffer[i] = __builtin_bswap64(
-				_pdep_u64(
-					static_cast<std::uint64_t>(InputBuffer[i]), LSB8
-				) | BinAsciiBasis
-			);
-		#else
-			OutputBuffer[i] = (
-				(((((
-				static_cast<std::uint64_t>(InputBuffer[i])
-				* LSB8			) // "broadcast" low byte to all 8 bytes.
-				& UniqueBit		) // Mask each byte to have 1 unique bit.
-				+ CarryShift	) // Shift this bit to the last bit of each
-								  // byte using the carry of binary addition.
-				& MSB8			) // Isolate these last bits of each byte.
-				>> 7			) // Shift it back to the low bit of each byte.
-				| BinAsciiBasis	  // Turn it into ascii '0' and '1'
-			);
-		#endif
-		}
+		Base2::Encode(InputBuffer, OutputBuffer, CurRead);
 		CurrentColumn = WrapWrite(
 			reinterpret_cast<const char*>(OutputBuffer), CurRead * 8,
 			Settings.Wrap, Settings.OutputFile, CurrentColumn
