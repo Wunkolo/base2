@@ -88,10 +88,11 @@ bool Encode( const Settings& Settings )
 	{
 		// Process whatever was read
 		std::size_t i = 0;
+
 		// Four at a time
+		#if defined(__AVX2__)
 		for( std::size_t j = i / 4; j < CurRead / 4; ++j, i += 4 )
 		{
-			#if defined(__AVX2__)
 			__m256i Result = _mm256_set1_epi32(
 				*reinterpret_cast<const std::uint32_t*>(&InputBuffer[i])
 			);
@@ -126,12 +127,13 @@ bool Encode( const Settings& Settings )
 			_mm256_storeu_si256(
 				reinterpret_cast<__m256i*>(&OutputBuffer[i]), Result
 			);
-			#endif
 		}
+		#endif
+
 		// Two at a time
+		#if defined(__SSE2__)
 		for( std::size_t j = i / 2; j < CurRead / 2; ++j, i += 2 )
 		{
-			#if defined(__SSE2__)
 			__m128i Result = _mm_set_epi64x(
 				0x0101010101010101UL * static_cast<std::uint64_t>(InputBuffer[i + 1]),
 				0x0101010101010101UL * static_cast<std::uint64_t>(InputBuffer[i + 0])
@@ -157,8 +159,9 @@ bool Encode( const Settings& Settings )
 			_mm_store_si128(
 				reinterpret_cast<__m128i*>(&OutputBuffer[i]), Result
 			);
-			#endif
 		}
+		#endif
+
 		// One at a time
 		for( ; i < CurRead; ++i )
 		{
