@@ -18,7 +18,7 @@ void Base2::Encode(
 	constexpr std::uint64_t MSB8       = LSB8 << 7u;
 	// Constant bits for ascii '0' and '1'
 	constexpr std::uint64_t BinAsciiBasis = LSB8 * '0';
-	for( std::size_t i = 0; i < CurRead; ++i )
+	for( std::size_t i = 0; i < Length; ++i )
 	{
 		Output[i] = ((((((
 			static_cast<std::uint64_t>(Input[i])
