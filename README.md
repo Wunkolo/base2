@@ -51,14 +51,26 @@ CPU:       Topology: Dual Core model: Intel Core i3-6100 bits: 64 type: MT MCP L
            Speed: 3700 MHz min/max: 800/3700 MHz Core speeds (MHz): 1: 3700 2: 3700 3: 3700 4: 3700 
 ```
 
-Generic:
+Generic(64-bit SWAR method):
 ```
 ./base2 --wrap=0 /dev/urandom | pv > /dev/null
-	47GiB 0:00:10 [ 656MiB/s]
+	10.0GiB 0:00:10 [1.08GiB/s]
 ```
 
 BMI2
 ```
 ./base2 --wrap=0 /dev/urandom | pv > /dev/null
-	60GiB 0:00:10 [ 787MiB/s]
+	11.1GiB 0:00:10 [1.11GiB/s]
+```
+
+BMI2 + SSE + SSE2
+```
+./base2 --wrap=0 /dev/urandom | pv > /dev/null
+	11.3GiB 0:00:10 [1.15GiB/s]
+```
+
+BMI2 + SSE + SSE2 + AVX2
+```
+./base2 --wrap=0 /dev/urandom | pv > /dev/null
+	11.8GiB 0:00:10 [1.25GiB/s] 
 ```
