@@ -1,5 +1,7 @@
 This is a little writeup on some anticipatory code to eventually test and benchmark on the upcoming Intel Icelake architecture.
 
+# Decoding
+
 The `pext` instruction is a particularly useful instruction in [BMI2](https://en.wikipedia.org/wiki/Bit_Manipulation_Instruction_Sets) that allows the programmer to provide
 a bit-mask integer with `1` bits set in positions of interests for which the
 `pext` instruction will **ext**ract these bits in **p**arallel and compact them all against the least-significnat bits.
@@ -167,3 +169,67 @@ As of now(Thu 30 May 2019 01:53:47 PM PDT) Icelake is not out yet so there is no
 way for me to actually benchmark this on hardware to get some performance numbers
 but it is theretically up to **x8** times faster than the _already-fast_ `pext` method
 of decoding base2-ascii back into binary!
+
+# Encoding
+
+Similar to decoding, the `vpshufbitqmb` instruction can be used to distribute bits across bytes to accelerate
+base2 _encoding_. `vpshufbitqmb` already creates a 64-bit mask which lends itself to the the masked AVX512
+operations. The `_mm512_mask_blend_epi8` intrinsic can utilize this 64-bit mask to "pick" between the `0` and `1`
+ascii bytes. Across a 512-bit register(64 bytes), **8** bytes of input data can be processed at a time providing again
+another theoretical **x8** speedup.
+
+```cpp
+
+void Base2Encode(
+    const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
+)
+{
+	std::size_t i = 0;
+	// Encode 8 bytes at a time!
+    for( std::size_t j = i/8 ; i < Length/8; ++j, i += 8 )
+    {
+		// Reverse bits in each byte and convert it into an AVX512 mask,
+		// all in one instruction.
+		const __mmask64 Mask = _mm512_bitshuffle_epi64_mask(
+			_mm512_set1_epi64(*(const std::uint64_t*)&Input[i]),
+			_mm512_set_epi64(
+				0x00'01'02'03'04'05'06'07 + 0x0101010101010101 * 0x38, // Byte 7
+				0x00'01'02'03'04'05'06'07 + 0x0101010101010101 * 0x30, // Byte 6
+				0x00'01'02'03'04'05'06'07 + 0x0101010101010101 * 0x28, // Byte 5
+				0x00'01'02'03'04'05'06'07 + 0x0101010101010101 * 0x20, // Byte 4
+				0x00'01'02'03'04'05'06'07 + 0x0101010101010101 * 0x18, // Byte 3
+				0x00'01'02'03'04'05'06'07 + 0x0101010101010101 * 0x10, // Byte 2
+				0x00'01'02'03'04'05'06'07 + 0x0101010101010101 * 0x08, // Byte 1
+				0x00'01'02'03'04'05'06'07 + 0x0101010101010101 * 0x00  // Byte 0
+			)
+		);
+		// Use 64-bit mask to create 64 ascii-bytes(8 encoded bytes)
+        // by picking between '0' and '1' bytes
+		const __m512i Ascii = _mm512_mask_blend_epi8(
+			Mask, _mm512_set1_epi8('0'), _mm512_set1_epi8('1')
+		);
+		_mm512_storeu_si512(&Output[i], Ascii);
+	}
+	// Other versions are just variations of the above at different widths
+	// for( std::size_t j = i/4 ; i < Length/4; ++j, i += 4 ) ...
+	// for( std::size_t j = i/2 ; i < Length/2; ++j, i += 2 ) ...
+	for( ; i < Length; ++i )
+	{
+        // Currently the fastest method
+		Output[i] = __builtin_bswap64(
+			_pdep_u64( static_cast<std::uint64_t>(Input[i]), 0x0101010101010101)
+			| (0x0101010101010101 * '0')
+		);
+	}
+}
+
+int main()
+{
+	const char* Input = "Hello World!";
+	char Output[1024] = {0};
+
+	Base2Encode((std::uint8_t*)Input, (std::uint64_t*)Output, 12);
+	std::printf("Output: '%.1024s'\n", Output);
+	// 010010000110010101101100011011000110111100100000010101110110111101110010011011000110010000100001
+}
+```
