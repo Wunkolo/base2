@@ -124,7 +124,7 @@ inline void Encode<2>(
 }
 #endif
 
-#if defined(__AVX512F__)
+#if defined(__AVX512F__) && defined(__AVX512BW__)
 // Eight at a time
 template<>
 inline void Encode<3>(
@@ -134,8 +134,6 @@ inline void Encode<3>(
 	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
 	constexpr std::uint64_t UniqueBit     = 0x0102040810204080UL;
 	constexpr std::uint64_t CarryShift    = 0x7F7E7C7870604000UL;
-	constexpr std::uint64_t MSB8          = LSB8 << 7u;
-	constexpr std::uint64_t BinAsciiBasis = LSB8 * '0';
 
 	std::size_t i = 0;
 	for( ; i < Length; i += 8 )
@@ -152,15 +150,19 @@ inline void Encode<3>(
 		);
 		// Mask Unique bits per byte
 		Result = _mm512_and_si512(Result, _mm512_set1_epi64(UniqueBit));
-		// Use the carry-bit to slide it to the far left
+		// Use the carry-bit to slide it to the far left of each byte
 		Result = _mm512_add_epi64(Result, _mm512_set1_epi64(CarryShift));
-		// Mask this last bit
-		Result = _mm512_and_si512(Result, _mm512_set1_epi64(MSB8));
-		// Shift it to the low bit of each byte
-		Result = _mm512_srli_epi64(Result, 7);
+		// Get this last bit and put it into a 64-bit mask
+		const __mmask64 BitMask = _mm512_test_epi8_mask(
+			Result,
+			_mm512_set1_epi8(0b10000000)
+		);
 		// Convert it to ascii `0` and `1`
-		Result = _mm512_or_si512(Result, _mm512_set1_epi64(BinAsciiBasis));
-		_mm512_storeu_si512( reinterpret_cast<__m512i*>(&Output[i]), Result);
+		const __m512i ASCII = _mm512_mask_blend_epi8(
+			BitMask,
+			_mm512_set1_epi8('0'), _mm512_set1_epi8('1')
+		);
+		_mm512_storeu_si512( reinterpret_cast<__m512i*>(&Output[i]), ASCII);
 	}
 
 	Encode<2>(Input + i * 8, Output + i * 8, Length % 8);
