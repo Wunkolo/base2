@@ -133,7 +133,6 @@ inline void Encode<3>(
 {
 	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
 	constexpr std::uint64_t UniqueBit     = 0x0102040810204080UL;
-	constexpr std::uint64_t CarryShift    = 0x7F7E7C7870604000UL;
 
 	std::size_t i = 0;
 	for( ; i < Length; i += 8 )
@@ -148,19 +147,13 @@ inline void Encode<3>(
 				LSB8 * 3, LSB8 * 2, LSB8 * 1, LSB8 * 0
 			)
 		);
-		// Mask Unique bits per byte
-		Result = _mm512_and_si512(Result, _mm512_set1_epi64(UniqueBit));
-		// Use the carry-bit to slide it to the far left of each byte
-		Result = _mm512_add_epi64(Result, _mm512_set1_epi64(CarryShift));
-		// Get this last bit and put it into a 64-bit mask
+		// Get unique bits in each byte into a 64-bit mask
 		const __mmask64 BitMask = _mm512_test_epi8_mask(
-			Result,
-			_mm512_set1_epi8(0b10000000)
+			Result, _mm512_set1_epi64(UniqueBit)
 		);
 		// Convert it to ascii `0` and `1`
 		const __m512i ASCII = _mm512_mask_blend_epi8(
-			BitMask,
-			_mm512_set1_epi8('0'), _mm512_set1_epi8('1')
+			BitMask, _mm512_set1_epi8('0'), _mm512_set1_epi8('1')
 		);
 		_mm512_storeu_si512( reinterpret_cast<__m512i*>(&Output[i]), ASCII);
 	}
