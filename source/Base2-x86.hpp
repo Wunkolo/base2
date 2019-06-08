@@ -137,21 +137,22 @@ inline void Encode<3>(
 	std::size_t i = 0;
 	for( ; i < Length; i += 8 )
 	{
-		__m512i Result = _mm512_set1_epi64(
+		// Load 8 bytes, and broadcast it across all 8 64-bit lanes
+		__m512i Bytes8 = _mm512_set1_epi64(
 			*reinterpret_cast<const std::uint64_t*>(&Input[i])
 		);
-		// Broadcast each byte to each 64-bit lane
-		Result = _mm512_shuffle_epi8(
-			Result, _mm512_set_epi64(
+		// "Unzip" each byte across each 64-bit lane
+		Bytes8 = _mm512_shuffle_epi8(
+			Bytes8, _mm512_set_epi64(
 				LSB8 * 7, LSB8 * 6, LSB8 * 5, LSB8 * 4,
 				LSB8 * 3, LSB8 * 2, LSB8 * 1, LSB8 * 0
 			)
 		);
 		// Get unique bits in each byte into a 64-bit mask
 		const __mmask64 BitMask = _mm512_test_epi8_mask(
-			Result, _mm512_set1_epi64(UniqueBit)
+			Bytes8, _mm512_set1_epi64(UniqueBit)
 		);
-		// Convert it to ascii `0` and `1`
+		// Use the mask to select between ASCII bytes `0` and `1`
 		const __m512i ASCII = _mm512_mask_blend_epi8(
 			BitMask, _mm512_set1_epi8('0'), _mm512_set1_epi8('1')
 		);
