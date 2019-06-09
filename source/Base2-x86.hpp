@@ -47,8 +47,38 @@ inline void Encode<0>(
 #endif
 }
 
-#if defined(__SSE2__)
 // Two at a time
+#if defined(__SSE4_1__)
+template<>
+inline void Encode<1>(
+	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
+)
+{
+	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
+	constexpr std::uint64_t UniqueBit     = 0x0102040810204080UL;
+	constexpr std::uint64_t CarryShift    = 0x7F7E7C7870604000UL;
+
+	std::size_t i = 0;
+	for( ; i < Length; i += 2 )
+	{
+		__m128i Result = _mm_set_epi64x(
+			LSB8 * static_cast<std::uint64_t>(Input[i + 1]),
+			LSB8 * static_cast<std::uint64_t>(Input[i + 0])
+		);
+		// Mask Unique bits per byte
+		Result = _mm_and_si128(Result, _mm_set1_epi64x(UniqueBit));
+		// Use the carry-bit of addition to slide it to the sign bit
+		Result = _mm_add_epi64(Result, _mm_set1_epi64x(CarryShift));
+		// Pick between ascii '0' and '1', using the upper bit in each byte
+		Result = _mm_blendv_epi8(
+			_mm_set1_epi8('0'), _mm_set1_epi8('1'), Result
+		);
+		_mm_store_si128(reinterpret_cast<__m128i*>(&Output[i]), Result);
+	}
+
+	Encode<0>(Input + i * 2, Output + i * 2, Length % 2);
+}
+#elif defined(__SSE2__)
 template<>
 inline void Encode<1>(
 	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
@@ -107,7 +137,7 @@ inline void Encode<2>(
 		);
 		// Mask Unique bits per byte
 		Result = _mm256_and_si256(Result, _mm256_set1_epi64x(UniqueBit));
-		// Use the carry-bit to slide it to the sign bit
+		// Use the carry-bit of addition to slide it to the sign bit
 		Result = _mm256_add_epi64(Result, _mm256_set1_epi64x(CarryShift));
 		// Pick between ascii '0' and '1', using the upper bit in each byte
 		Result = _mm256_blendv_epi8(
