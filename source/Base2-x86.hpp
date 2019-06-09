@@ -91,11 +91,9 @@ inline void Encode<2>(
 	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
 )
 {
-	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
-	constexpr std::uint64_t UniqueBit     = 0x0102040810204080UL;
-	constexpr std::uint64_t CarryShift    = 0x7F7E7C7870604000UL;
-	constexpr std::uint64_t MSB8          = LSB8 << 7u;
-	constexpr std::uint64_t BinAsciiBasis = LSB8 * '0';
+	constexpr std::uint64_t LSB8       = 0x0101010101010101UL;
+	constexpr std::uint64_t UniqueBit  = 0x0102040810204080UL;
+	constexpr std::uint64_t CarryShift = 0x7F7E7C7870604000UL;
 
 	std::size_t i = 0;
 	for( ; i < Length; i += 4 )
@@ -109,14 +107,12 @@ inline void Encode<2>(
 		);
 		// Mask Unique bits per byte
 		Result = _mm256_and_si256(Result, _mm256_set1_epi64x(UniqueBit));
-		// Use the carry-bit to slide it to the far left
+		// Use the carry-bit to slide it to the sign bit
 		Result = _mm256_add_epi64(Result, _mm256_set1_epi64x(CarryShift));
-		// Mask this last bit
-		Result = _mm256_and_si256(Result, _mm256_set1_epi64x(MSB8));
-		// Shift it to the low bit of each byte
-		Result = _mm256_srli_epi64(Result, 7);
-		// Convert it to ascii `0` and `1`
-		Result = _mm256_or_si256(Result, _mm256_set1_epi64x(BinAsciiBasis));
+		// Pick between ascii '0' and '1', using the upper bit in each byte
+		Result = _mm256_blendv_epi8(
+			_mm256_set1_epi8('0'), _mm256_set1_epi8('1'), Result
+		);
 		_mm256_storeu_si256( reinterpret_cast<__m256i*>(&Output[i]), Result);
 	}
 
@@ -156,7 +152,7 @@ inline void Encode<3>(
 		const __m512i ASCII = _mm512_mask_blend_epi8(
 			BitMask, _mm512_set1_epi8('0'), _mm512_set1_epi8('1')
 		);
-		_mm512_storeu_si512( reinterpret_cast<__m512i*>(&Output[i]), ASCII);
+		_mm512_storeu_si512(reinterpret_cast<__m512i*>(&Output[i]), ASCII);
 	}
 
 	Encode<2>(Input + i * 8, Output + i * 8, Length % 8);
