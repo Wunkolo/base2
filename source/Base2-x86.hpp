@@ -282,10 +282,8 @@ inline void Decode<2>(
 		ASCII = _mm256_shuffle_epi8(
 			ASCII,
 			_mm256_set_epi8(
-				8,  9, 10, 11, 12, 13, 14, 15,
-				0,  1,  2,  3,  4,  5,  6,  7,
-				8,  9, 10, 11, 12, 13, 14, 15,
-				0,  1,  2,  3,  4,  5,  6,  7
+				8,  9, 10, 11, 12, 13, 14, 15, 0,  1,  2,  3,  4,  5,  6,  7,
+				8,  9, 10, 11, 12, 13, 14, 15, 0,  1,  2,  3,  4,  5,  6,  7
 			)
 		);
 		// Shift lowest bit of each byte into sign bit
@@ -295,6 +293,45 @@ inline void Decode<2>(
 	}
 
 	Decode<1>(Input + i * 4, Output + i * 4, Length % 4);
+}
+#endif
+
+// Eight at a time
+#if defined(__AVX512F__) && defined(__AVX512BW__)
+template<>
+inline void Decode<3>(
+	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
+)
+{
+	constexpr std::uint64_t LSB8 = 0x0101010101010101UL;
+	std::size_t i = 0;
+	for( ; i < Length; i += 8 )
+	{
+		// Load in 64 bytes of endian-swapped ascii bytes
+		__m512i ASCII = _mm512_loadu_si512(
+			reinterpret_cast<const __m512i*>(&Input[i])
+		);
+		ASCII = _mm512_shuffle_epi8(
+			ASCII,
+			_mm512_set_epi64(
+				0x0001020304050607 + LSB8 * 0x38,
+				0x0001020304050607 + LSB8 * 0x30,
+				0x0001020304050607 + LSB8 * 0x28,
+				0x0001020304050607 + LSB8 * 0x20,
+				0x0001020304050607 + LSB8 * 0x18,
+				0x0001020304050607 + LSB8 * 0x10,
+				0x0001020304050607 + LSB8 * 0x08,
+				0x0001020304050607 + LSB8 * 0x00
+			)
+		);
+		const __mmask64 Binary = _mm512_test_epi8_mask(
+			ASCII, _mm512_set1_epi8(0x01)
+		);
+		// Compress each sign bit into a 16-bit word
+		*reinterpret_cast<std::uint64_t*>(&Output[i]) = _cvtmask64_u64(Binary);
+	}
+
+	Decode<2>(Input + i * 8, Output + i * 8, Length % 8);
 }
 #endif
 }
