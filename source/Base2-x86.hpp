@@ -48,37 +48,7 @@ inline void Encode<0>(
 }
 
 // Two at a time
-#if defined(__SSE4_1__)
-template<>
-inline void Encode<1>(
-	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
-)
-{
-	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
-	constexpr std::uint64_t UniqueBit     = 0x0102040810204080UL;
-	constexpr std::uint64_t CarryShift    = 0x7F7E7C7870604000UL;
-
-	std::size_t i = 0;
-	for( ; i < Length; i += 2 )
-	{
-		__m128i Result = _mm_set_epi64x(
-			LSB8 * static_cast<std::uint64_t>(Input[i + 1]),
-			LSB8 * static_cast<std::uint64_t>(Input[i + 0])
-		);
-		// Mask Unique bits per byte
-		Result = _mm_and_si128(Result, _mm_set1_epi64x(UniqueBit));
-		// Use the carry-bit of addition to slide it to the sign bit
-		Result = _mm_add_epi64(Result, _mm_set1_epi64x(CarryShift));
-		// Pick between ascii '0' and '1', using the upper bit in each byte
-		Result = _mm_blendv_epi8(
-			_mm_set1_epi8('0'), _mm_set1_epi8('1'), Result
-		);
-		_mm_store_si128(reinterpret_cast<__m128i*>(&Output[i]), Result);
-	}
-
-	Encode<0>(Input + i * 2, Output + i * 2, Length % 2);
-}
-#elif defined(__SSE2__)
+#if defined(__SSE2__)
 template<>
 inline void Encode<1>(
 	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
@@ -93,20 +63,35 @@ inline void Encode<1>(
 	std::size_t i = 0;
 	for( ; i < Length; i += 2 )
 	{
+	#if defined(__SSSE3__)
+		__m128i Result = _mm_set1_epi16(
+			*reinterpret_cast<const std::uint16_t*>(&Input[i])
+		);
+		// Upper and lower 64-bits get filled with bytes
+		Result = _mm_shuffle_epi8(Result, _mm_set_epi64x(LSB8 * 1, LSB8 * 0));
+	#else
 		__m128i Result = _mm_set_epi64x(
 			LSB8 * static_cast<std::uint64_t>(Input[i + 1]),
 			LSB8 * static_cast<std::uint64_t>(Input[i + 0])
 		);
+	#endif
 		// Mask Unique bits per byte
 		Result = _mm_and_si128(Result, _mm_set1_epi64x(UniqueBit));
 		// Use the carry-bit to slide it to the far left
 		Result = _mm_add_epi64(Result, _mm_set1_epi64x(CarryShift));
+	#if defined(__SSE4_1__)
+		// Pick between ascii '0' and '1', using the upper bit in each byte
+		Result = _mm_blendv_epi8(
+			_mm_set1_epi8('0'), _mm_set1_epi8('1'), Result
+		);
+	#else
 		// Mask this last bit
 		Result = _mm_and_si128(Result, _mm_set1_epi64x(MSB8));
 		// Shift it to the low bit of each byte
 		Result = _mm_srli_epi64(Result, 7);
 		// Convert it to ascii `0` and `1`
 		Result = _mm_or_si128(Result, _mm_set1_epi64x(BinAsciiBasis));
+	#endif
 		_mm_store_si128(reinterpret_cast<__m128i*>(&Output[i]), Result);
 	}
 
