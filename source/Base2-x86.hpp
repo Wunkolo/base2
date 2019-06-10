@@ -264,6 +264,39 @@ inline void Decode<1>(
 	Decode<0>(Input + i * 2, Output + i * 2, Length % 2);
 }
 #endif
+
+// Four at a time
+#if defined(__AVX2__)
+template<>
+inline void Decode<2>(
+	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
+)
+{
+	std::size_t i = 0;
+	for( ; i < Length; i += 4 )
+	{
+		// Load in 32 bytes of endian-swapped ascii bytes
+		__m256i ASCII = _mm256_loadu_si256(
+			reinterpret_cast<const __m256i*>(&Input[i])
+		);
+		ASCII = _mm256_shuffle_epi8(
+			ASCII,
+			_mm256_set_epi8(
+				8,  9, 10, 11, 12, 13, 14, 15,
+				0,  1,  2,  3,  4,  5,  6,  7,
+				8,  9, 10, 11, 12, 13, 14, 15,
+				0,  1,  2,  3,  4,  5,  6,  7
+			)
+		);
+		// Shift lowest bit of each byte into sign bit
+		ASCII = _mm256_slli_epi64(ASCII, 7);
+		// Compress each sign bit into a 16-bit word
+		*reinterpret_cast<std::uint32_t*>(&Output[i]) = _mm256_movemask_epi8(ASCII);
+	}
+
+	Decode<1>(Input + i * 4, Output + i * 4, Length % 4);
+}
+#endif
 }
 
 void Base2::Decode(
