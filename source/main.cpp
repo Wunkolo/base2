@@ -135,7 +135,7 @@ bool Decode( const Settings& Settings )
 		))
 	)
 	{
-		// Filter input
+		// Filter input of all garbage bytes
 		if( Settings.IgnoreInvalid )
 		{
 			const std::uint8_t* NewLast = std::remove_if(
@@ -147,19 +147,11 @@ bool Decode( const Settings& Settings )
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead) - NewLast;
 			CurRead -= RemovedBytes;
 		}
-		// Process any new groups of 8 bytes that we can
+		// Process any new groups of 8 ascii-bytes
 		Base2::Decode(
 			InputBuffer + (AsciiBuffSize - ToRead) / 8,
 			OutputBuffer, CurRead / 8
 		);
-		// for(
-		// 	std::size_t i = (AsciiBuffSize - ToRead) / 8 ;
-		// 	i < (AsciiBuffSize - ToRead + CurRead) / 8 ;
-		// 	++i
-		// )
-		// {
-		// 	OutputBuffer[i] = DecodeWord(InputBuffer[i]);
-		// }
 		if( std::fwrite(OutputBuffer, 1, CurRead / 8, Settings.OutputFile) != CurRead / 8 )
 		{
 			std::fputs("Error writing to output file", stderr);

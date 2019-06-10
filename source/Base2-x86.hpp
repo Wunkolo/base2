@@ -1,5 +1,6 @@
 #include <x86intrin.h>
 
+/// Encoding
 
 namespace
 {
@@ -183,7 +184,25 @@ void Base2::Encode(
 	::Encode<~0>(Input, Output, Length);
 }
 
-void Base2::Decode(
+
+/// Decoding
+
+namespace
+{
+
+// Recursive device
+template<std::uint8_t WidthExp2>
+inline void Decode(
+	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
+)
+{
+	Decode<WidthExp2-1>(Input, Output, Length);
+}
+
+
+// Serial
+template<>
+inline void Decode<0>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
@@ -206,4 +225,13 @@ void Base2::Decode(
 	#endif
 		Output[i] = Binary;
 	}
+}
+
+}
+
+void Base2::Decode(
+	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
+)
+{
+	::Decode<~0>(Input, Output, Length);
 }
