@@ -7,7 +7,7 @@ namespace
 // Recursive device
 template<std::uint8_t WidthExp2>
 inline void Encode(
-	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
 	Encode<WidthExp2-1>(Input, Output, Length);
@@ -16,7 +16,7 @@ inline void Encode(
 // Serial
 template<>
 inline void Encode<0>(
-	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
 	// Least significant bit in an 8-bit integer
@@ -51,7 +51,7 @@ inline void Encode<0>(
 #if defined(__SSE2__)
 template<>
 inline void Encode<1>(
-	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
 	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
@@ -103,7 +103,7 @@ inline void Encode<1>(
 // Four at a time
 template<>
 inline void Encode<2>(
-	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
 	constexpr std::uint64_t LSB8       = 0x0101010101010101UL;
@@ -139,7 +139,7 @@ inline void Encode<2>(
 // Eight at a time
 template<>
 inline void Encode<3>(
-	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
 	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
@@ -177,8 +177,33 @@ inline void Encode<3>(
 
 
 void Base2::Encode(
-	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
 	::Encode<~0>(Input, Output, Length);
+}
+
+void Base2::Decode(
+	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
+)
+{
+	for( std::size_t i = 0; i < Length; ++i )
+	{
+		std::uint8_t Binary = 0;
+		const std::uint64_t ASCII = __builtin_bswap64(Input[i]);
+	#if defined(__BMI2__)
+		Binary = _pext_u64(ASCII, 0x0101010101010101UL);
+	#else
+		std::uint64_t Mask = 0x0101010101010101UL;
+		for( std::uint64_t CurBit = 1UL; Mask != 0; CurBit <<= 1 )
+		{
+			if( ASCII & Mask & -Mask )
+			{
+				Binary |= CurBit;
+			}
+			Mask &= (Mask - 1UL);
+		}
+	#endif
+		Output[i] = Binary;
+	}
 }

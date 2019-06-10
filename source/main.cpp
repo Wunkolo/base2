@@ -99,26 +99,6 @@ bool Encode( const Settings& Settings )
 	return EXIT_SUCCESS;
 }
 
-inline std::uint8_t DecodeWord( std::uint64_t BinAscii )
-{
-	const std::uint64_t& CurInput = __builtin_bswap64(BinAscii);
-	std::uint8_t Binary = 0;
-#if defined(__BMI2__)
-	Binary = _pext_u64(CurInput,0x0101010101010101UL);
-#else
-	std::uint64_t Mask = 0x0101010101010101UL;
-	for( std::uint64_t CurBit = 1UL; Mask != 0; CurBit <<= 1 )
-	{
-		if( CurInput & Mask & -Mask )
-		{
-			Binary |= CurBit;
-		}
-		Mask &= (Mask - 1UL);
-	}
-#endif
-	return Binary;
-}
-
 // By default, Decode will extract the lowest set bit in a chunk of 8 bytes
 // and compress it down into 1 byte.
 // Even if the input is not '0'(0x30) or '1'(0x31) it will do this unless
@@ -168,14 +148,18 @@ bool Decode( const Settings& Settings )
 			CurRead -= RemovedBytes;
 		}
 		// Process any new groups of 8 bytes that we can
-		for(
-			std::size_t i = (AsciiBuffSize - ToRead) / 8 ;
-			i < (AsciiBuffSize - ToRead + CurRead) / 8 ;
-			++i
-		)
-		{
-			OutputBuffer[i] = DecodeWord(InputBuffer[i]);
-		}
+		Base2::Decode(
+			InputBuffer + (AsciiBuffSize - ToRead) / 8,
+			OutputBuffer, CurRead / 8
+		);
+		// for(
+		// 	std::size_t i = (AsciiBuffSize - ToRead) / 8 ;
+		// 	i < (AsciiBuffSize - ToRead + CurRead) / 8 ;
+		// 	++i
+		// )
+		// {
+		// 	OutputBuffer[i] = DecodeWord(InputBuffer[i]);
+		// }
 		if( std::fwrite(OutputBuffer, 1, CurRead / 8, Settings.OutputFile) != CurRead / 8 )
 		{
 			std::fputs("Error writing to output file", stderr);

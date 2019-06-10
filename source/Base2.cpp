@@ -5,7 +5,7 @@
 #else
 // Generic Implementation
 void Base2::Encode(
-	const std::uint8_t* Input, std::uint64_t* Output, std::size_t Length
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
 	// Least significant bit in an 8-bit integer
@@ -30,6 +30,26 @@ void Base2::Encode(
 			>> 7			) // Shift it back to the low bit of each byte.
 			| BinAsciiBasis	  // Turn it into ascii '0' and '1'
 		);
+	}
+}
+
+void Base2::Decode(
+	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
+)
+{
+	for( std::size_t i = 0; i < Length; ++i )
+	{
+		std::uint8_t Binary = 0;
+		std::uint64_t Mask = 0x0101010101010101UL;
+		for( std::uint64_t CurBit = 1UL; Mask != 0; CurBit <<= 1 )
+		{
+			if( __builtin_bswap64(Input[i]) & Mask & -Mask )
+			{
+				Binary |= CurBit;
+			}
+			Mask &= (Mask - 1UL);
+		}
+		Output[i] = Binary;
 	}
 }
 #endif
