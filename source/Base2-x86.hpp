@@ -227,6 +227,43 @@ inline void Decode<0>(
 	}
 }
 
+// Two at a time
+#if defined(__SSE2__)
+template<>
+inline void Decode<1>(
+	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
+)
+{
+	std::size_t i = 0;
+	for( ; i < Length; i += 2 )
+	{
+		// Load in 16 bytes of endian-swapped ascii bytes
+	#if defined(__SSSE3__)
+		__m128i ASCII = _mm_loadu_si128(
+			reinterpret_cast<const __m128i*>(&Input[i])
+		);
+		ASCII = _mm_shuffle_epi8(
+			ASCII,
+			_mm_set_epi8(
+				8,  9, 10, 11, 12, 13, 14, 15,
+				0,  1,  2,  3,  4,  5,  6,  7
+			)
+		);
+	#else
+		__m128i ASCII = _mm_set_epi64x(
+			__builtin_bswap64(Input[i + 1]),
+			__builtin_bswap64(Input[i + 0])
+		);
+	#endif
+		// Shift lowest bit of each byte into sign bit
+		ASCII = _mm_slli_epi64(ASCII, 7);
+		// Compress each sign bit into a 16-bit word
+		*reinterpret_cast<std::uint16_t*>(&Output[i]) = _mm_movemask_epi8(ASCII);
+	}
+
+	Decode<0>(Input + i * 2, Output + i * 2, Length % 2);
+}
+#endif
 }
 
 void Base2::Decode(
