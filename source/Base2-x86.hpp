@@ -234,6 +234,7 @@ inline void Decode<1>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
+	constexpr std::uint64_t LSB8 = 0x0101010101010101UL;
 	std::size_t i = 0;
 	for( ; i < Length; i += 2 )
 	{
@@ -244,9 +245,9 @@ inline void Decode<1>(
 		);
 		ASCII = _mm_shuffle_epi8(
 			ASCII,
-			_mm_set_epi8(
-				8,  9, 10, 11, 12, 13, 14, 15,
-				0,  1,  2,  3,  4,  5,  6,  7
+			_mm_set_epi64x(
+				0x0001020304050607 + LSB8 * 0x08,
+				0x0001020304050607 + LSB8 * 0x00
 			)
 		);
 	#else
