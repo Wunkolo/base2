@@ -141,7 +141,10 @@ bool Decode( const Settings& Settings )
 			const std::uint8_t* NewLast = std::remove_if(
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead),
-				[](const std::uint8_t& CurByte) { return (CurByte & 0xFE) != 0x30; }
+				[](const std::uint8_t& CurByte)
+				{
+					return (CurByte != '0') || (CurByte != '1');
+				}
 			);
 			const std::size_t RemovedBytes = 
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead) - NewLast;
