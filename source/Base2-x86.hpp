@@ -272,6 +272,7 @@ inline void Decode<2>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
+	constexpr std::uint64_t LSB8 = 0x0101010101010101UL;
 	std::size_t i = 0;
 	for( ; i < Length; i += 4 )
 	{
@@ -279,16 +280,18 @@ inline void Decode<2>(
 		__m256i ASCII = _mm256_loadu_si256(
 			reinterpret_cast<const __m256i*>(&Input[i])
 		);
+		// Reverse each 8-byte element in each 128-bit lane
 		ASCII = _mm256_shuffle_epi8(
 			ASCII,
-			_mm256_set_epi8(
-				8,  9, 10, 11, 12, 13, 14, 15, 0,  1,  2,  3,  4,  5,  6,  7,
-				8,  9, 10, 11, 12, 13, 14, 15, 0,  1,  2,  3,  4,  5,  6,  7
+			_mm256_set_epi64x(
+				0x0001020304050607 + LSB8 * 0x08,
+				0x0001020304050607 + LSB8 * 0x00,
+				0x0001020304050607 + LSB8 * 0x08,
+				0x0001020304050607 + LSB8 * 0x00
 			)
 		);
 		// Shift lowest bit of each byte into sign bit
 		ASCII = _mm256_slli_epi64(ASCII, 7);
-		// Compress each sign bit into a 16-bit word
 		*reinterpret_cast<std::uint32_t*>(&Output[i]) = _mm256_movemask_epi8(ASCII);
 	}
 
@@ -327,7 +330,6 @@ inline void Decode<3>(
 		const __mmask64 Binary = _mm512_test_epi8_mask(
 			ASCII, _mm512_set1_epi8(0x01)
 		);
-		// Compress each sign bit into a 16-bit word
 		*reinterpret_cast<std::uint64_t*>(&Output[i]) = _cvtmask64_u64(Binary);
 	}
 
