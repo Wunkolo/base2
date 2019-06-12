@@ -138,17 +138,10 @@ bool Decode( const Settings& Settings )
 		// Filter input of all garbage bytes
 		if( Settings.IgnoreInvalid )
 		{
-			const std::uint8_t* NewLast = std::remove_if(
+			CurRead = Base2::Filter(
 				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead),
-				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead),
-				[](const std::uint8_t& CurByte)
-				{
-					return (CurByte != '0') || (CurByte != '1');
-				}
+				CurRead
 			);
-			const std::size_t RemovedBytes = 
-				reinterpret_cast<std::uint8_t*>(InputBuffer) + (AsciiBuffSize - ToRead + CurRead) - NewLast;
-			CurRead -= RemovedBytes;
 		}
 		// Process any new groups of 8 ascii-bytes
 		Base2::Decode(

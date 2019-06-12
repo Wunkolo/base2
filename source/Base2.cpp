@@ -52,4 +52,19 @@ void Base2::Decode(
 		Output[i] = Binary;
 	}
 }
+
+std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
+{
+	std::size_t End = 0;
+	for( std::size_t i = 0; i < Length; ++i )
+	{
+		const std::uint8_t CurByte = Bytes[i];
+		if( (CurByte != '0') && (CurByte != '1') )
+		{
+			continue;
+		}
+		Bytes[End++] = CurByte;
+	}
+	return End;
+}
 #endif
