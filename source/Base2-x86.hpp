@@ -346,14 +346,40 @@ void Base2::Decode(
 	::Decode<~0>(Input, Output, Length);
 }
 
-// Filter
+/// Filtering
+
 std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 {
 	std::size_t End = 0;
-	for( std::size_t i = 0; i < Length; ++i )
+	std::size_t i = 0;
+	for( ; i + 7 < Length; i += 8 )
+	{
+		// Read in 8 bytes at once
+		const std::uint64_t Word64 = *reinterpret_cast<const std::uint64_t*>(Bytes + i);
+
+		// Check for valid bytes, in parallel
+		if( (Word64 & 0xFEFEFEFEFEFEFEFE) == 0x3030303030303030 )
+		{
+			// We have 8 valid ascii-binary bytes
+			*reinterpret_cast<std::uint64_t*>(Bytes + End) = Word64;
+			End += 8;
+		}
+		else
+		{
+			// There is garbage
+			for( std::size_t k = 0; k < 8; ++k )
+			{
+				const std::uint8_t CurByte = Bytes[i + k];
+				if( (CurByte & 0xFE) != 0x30 ) continue;
+				Bytes[End++] = CurByte;
+			}
+		}
+	}
+
+	for( ; i < Length; ++i )
 	{
 		const std::uint8_t CurByte = Bytes[i];
-		if( (CurByte & 0b11111110) != 0x30 ) continue;
+		if( (CurByte & 0xFE) != 0x30 ) continue;
 		Bytes[End++] = CurByte;
 	}
 	return End;
