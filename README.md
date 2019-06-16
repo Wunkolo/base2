@@ -45,6 +45,9 @@ QWERTY
 
 Did I mention its fast:
 
+
+[i3-6100](https://en.wikichip.org/wiki/intel/core_i3/i3-6100)
+
 ```
 inxi -C
 CPU:       Topology: Dual Core model: Intel Core i3-6100 bits: 64 type: MT MCP L2 cache: 3072 KiB 
@@ -74,3 +77,5 @@ BMI2 + SSE + SSE2 + AVX2
 ./base2 --wrap=0 /dev/urandom | pv > /dev/null
 	11.8GiB 0:00:10 [1.25GiB/s] 
 ```
+
+Not that you will ever need to convert to and from base-2 at these speeds but this is a fun little side project regardless. I just really like SIMD and BMI2 and stuff.
