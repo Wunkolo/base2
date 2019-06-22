@@ -8,10 +8,6 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#if defined(__x86_64__) || defined(_M_X64)
-#include <x86intrin.h>
-#endif
-
 #include <Base2.hpp>
 
 // Virtual page size of the current system
@@ -28,11 +24,8 @@ struct Settings
 };
 
 std::size_t WrapWrite(
-	const char* Buffer,
-	std::size_t Length,
-	std::size_t WrapWidth,
-	std::FILE* OutputFile,
-	std::size_t CurrentColumn = 0
+	const char* Buffer, std::size_t Length, std::size_t WrapWidth,
+	std::FILE* OutputFile, std::size_t CurrentColumn = 0
 )
 {
 	if( WrapWidth == 0 )
@@ -67,16 +60,14 @@ bool Encode( const Settings& Settings )
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
 		mmap(
 			0, ByteBuffSize,
-			PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS,
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
 			-1, 0
 		)
 	);
 	std::uint64_t* OutputBuffer = static_cast<std::uint64_t*>(
 		mmap(
 			0, AsciiBuffSize,
-			PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS,
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
 			-1, 0
 		)
 	);
@@ -109,16 +100,14 @@ bool Decode( const Settings& Settings )
 	std::uint64_t* InputBuffer = static_cast<std::uint64_t*>(
 		mmap(
 			0, AsciiBuffSize,
-			PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS,
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
 			-1, 0
 		)
 	);
 	std::uint8_t* OutputBuffer = static_cast<std::uint8_t*>(
 		mmap(
 			0, ByteBuffSize,
-			PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS,
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
 			-1, 0
 		)
 	);
