@@ -58,8 +58,6 @@ inline void Encode<1>(
 	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
 	constexpr std::uint64_t UniqueBit     = 0x0102040810204080UL;
 	constexpr std::uint64_t CarryShift    = 0x7F7E7C7870604000UL;
-	constexpr std::uint64_t MSB8          = LSB8 << 7u;
-	constexpr std::uint64_t BinAsciiBasis = LSB8 * '0';
 
 	std::size_t i = 0;
 	for( ; i < Length; i += 2 )
@@ -86,6 +84,8 @@ inline void Encode<1>(
 			_mm_set1_epi8('0'), _mm_set1_epi8('1'), Result
 		);
 	#else
+		constexpr std::uint64_t BinAsciiBasis = LSB8 * '0';
+		constexpr std::uint64_t MSB8          = LSB8 << 7u;
 		// Mask this last bit
 		Result = _mm_and_si128(Result, _mm_set1_epi64x(MSB8));
 		// Shift it to the low bit of each byte
@@ -181,7 +181,7 @@ void Base2::Encode(
 	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
-	::Encode<0xFF>(Input, Output, Length);
+	::Encode<0xFFu>(Input, Output, Length);
 }
 
 
@@ -252,8 +252,7 @@ inline void Decode<1>(
 		);
 	#else
 		__m128i ASCII = _mm_set_epi64x(
-			__builtin_bswap64(Input[i + 1]),
-			__builtin_bswap64(Input[i + 0])
+			__builtin_bswap64(Input[i + 1]), __builtin_bswap64(Input[i + 0])
 		);
 	#endif
 		// Shift lowest bit of each byte into sign bit
@@ -343,7 +342,7 @@ void Base2::Decode(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
-	::Decode<0xFF>(Input, Output, Length);
+	::Decode<0xFFu>(Input, Output, Length);
 }
 
 /// Filtering
@@ -352,6 +351,42 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 {
 	std::size_t End = 0;
 	std::size_t i = 0;
+
+	#if defined(__SSE2__)
+	// Check and compress 16 bytes at a time
+	for( ; i + 15 < Length; i += 16 )
+	{
+		// Read in 16 bytes at once
+		const __m128i Word128 = _mm_loadu_si128(
+			reinterpret_cast<const __m128i*>(Bytes + i)
+		);
+
+		// Check for valid bytes, in parallel
+		const __m128i BinaryTest = _mm_cmpeq_epi8(
+			_mm_and_si128(Word128, _mm_set1_epi8(0xFE)),
+			_mm_set1_epi8(0x30)
+		);
+		if( _mm_movemask_epi8(BinaryTest) == 0xFFFF )
+		{
+			// We have 16 valid ascii-binary bytes
+			_mm_storeu_si128(
+				reinterpret_cast<__m128i*>(Bytes + End), Word128
+			);
+			End += 16;
+		}
+		else
+		{
+			// There is garbage
+			for( std::size_t k = 0; k < 16; ++k )
+			{
+				const std::uint8_t CurByte = Bytes[i + k];
+				if( (CurByte & 0xFE) != 0x30 ) continue;
+				Bytes[End++] = CurByte;
+			}
+		}
+	}
+	#else
+	// Check and compress 8 bytes at a time
 	for( ; i + 7 < Length; i += 8 )
 	{
 		// Read in 8 bytes at once
@@ -375,6 +410,7 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 			}
 		}
 	}
+	#endif
 
 	for( ; i < Length; ++i )
 	{

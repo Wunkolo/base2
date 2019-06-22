@@ -36,8 +36,7 @@ std::size_t WrapWrite(
 	{
 		const std::size_t ColumnsRemaining = WrapWidth - CurrentColumn;
 		const std::size_t ToWrite = std::min(
-			ColumnsRemaining,
-			Length - Written
+			ColumnsRemaining, Length - Written
 		);
 		if( ToWrite == 0)
 		{
@@ -60,15 +59,13 @@ bool Encode( const Settings& Settings )
 	std::uint8_t* InputBuffer = static_cast<std::uint8_t*>(
 		mmap(
 			0, ByteBuffSize,
-			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
-			-1, 0
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0
 		)
 	);
 	std::uint64_t* OutputBuffer = static_cast<std::uint64_t*>(
 		mmap(
 			0, AsciiBuffSize,
-			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
-			-1, 0
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0
 		)
 	);
 	std::size_t CurrentColumn = 0;
@@ -100,15 +97,13 @@ bool Decode( const Settings& Settings )
 	std::uint64_t* InputBuffer = static_cast<std::uint64_t*>(
 		mmap(
 			0, AsciiBuffSize,
-			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
-			-1, 0
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0
 		)
 	);
 	std::uint8_t* OutputBuffer = static_cast<std::uint8_t*>(
 		mmap(
 			0, ByteBuffSize,
-			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
-			-1, 0
+			PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0
 		)
 	);
 
@@ -222,9 +217,7 @@ int main( int argc, char* argv[] )
 			if( CurSettings.InputFile == nullptr )
 			{
 				std::fprintf(
-					stderr,
-					"Error opening input file: %s\n",
-					argv[optind]
+					stderr, "Error opening input file: %s\n", argv[optind]
 				);
 			}
 		}
