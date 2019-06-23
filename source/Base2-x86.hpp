@@ -352,7 +352,40 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 	std::size_t End = 0;
 	std::size_t i = 0;
 
-	#if defined(__AVX2__)
+	#if defined(__AVX512F__) && defined(__AVX512BW__)
+	// Check and compress 16 bytes at a time
+	for( ; i + 63 < Length; i += 64 )
+	{
+		// Read in 16 bytes at once
+		const __m512i Word512 = _mm512_loadu_si512(
+			reinterpret_cast<const __m512i*>(Bytes + i)
+		);
+
+		// Check for valid bytes, in parallel
+		const __mmask64 BinaryTest = _mm512_cmpeq_epi8_mask(
+			_mm512_and_si512(Word512, _mm512_set1_epi8(0xFE)),
+			_mm512_set1_epi8(0x30)
+		);
+		if( _ktestc_mask64_u8(0, BinaryTest) )
+		{
+			// We have 16 valid ascii-binary bytes
+			_mm512_storeu_si512(
+				reinterpret_cast<__m512i*>(Bytes + End), Word512
+			);
+			End += 64;
+		}
+		else
+		{
+			// There is garbage
+			for( std::size_t k = 0; k < 64; ++k )
+			{
+				const std::uint8_t CurByte = Bytes[i + k];
+				if( (CurByte & 0xFE) != 0x30 ) continue;
+				Bytes[End++] = CurByte;
+			}
+		}
+	}
+	#elif defined(__AVX2__)
 	// Check and compress 16 bytes at a time
 	for( ; i + 31 < Length; i += 32 )
 	{
@@ -362,11 +395,13 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 		);
 
 		// Check for valid bytes, in parallel
-		const __m256i BinaryTest = _mm256_cmpeq_epi8(
-			_mm256_and_si256(Word256, _mm256_set1_epi8(0xFE)),
-			_mm256_set1_epi8(0x30)
+		const std::uint32_t BinaryTest = _mm256_movemask_epi8(
+			_mm256_cmpeq_epi8(
+				_mm256_and_si256(Word256, _mm256_set1_epi8(0xFE)),
+				_mm256_set1_epi8(0x30)
+			)
 		);
-		if( _mm256_movemask_epi8(BinaryTest) == -1 )
+		if( BinaryTest == std::uint32_t(~0u) )
 		{
 			// We have 16 valid ascii-binary bytes
 			_mm256_storeu_si256(
