@@ -333,7 +333,26 @@ inline void Decode<2>(
 #endif
 
 // Eight at a time
-#if defined(__AVX512F__) && defined(__AVX512BW__)
+#if defined(__AVX512F__) && defined(__AVX512BITALG__)
+template<>
+inline void Decode<3>(
+	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
+)
+{
+	std::size_t i = 0;
+	for( ; i < Length; i += 8 )
+	{
+		const __mmask64 Compressed = _mm512_bitshuffle_epi64_mask(
+			_mm512_loadu_si512(reinterpret_cast<const __m512i*>(Input + i)),
+			// Samples ascii bits in an endian-swapped order
+			_mm512_set1_epi64(0x00'08'10'18'20'28'30'38)
+		);
+		_store_mask64(reinterpret_cast<__mmask64*>(Output + i), Compressed);
+	}
+
+	Decode<2>(Input + i * 8, Output + i * 8, Length % 8);
+}
+#elif defined(__AVX512F__) && defined(__AVX512BW__)
 template<>
 inline void Decode<3>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
