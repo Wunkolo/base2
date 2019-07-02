@@ -217,7 +217,7 @@ void Base2::Encode(
 	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
-	::Encode<~0>(Input, Output, Length);
+	::Encode<0xFF>(Input, Output, Length);
 }
 
 
@@ -376,5 +376,5 @@ void Base2::Decode(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
-	::Decode<~0>(Input, Output, Length);
+	::Decode<0xFF>(Input, Output, Length);
 }
