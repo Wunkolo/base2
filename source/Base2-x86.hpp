@@ -136,7 +136,43 @@ inline void Encode<2>(
 }
 #endif
 
-#if defined(__AVX512F__) && defined(__AVX512BW__)
+#if defined(__AVX512F__) && defined(__AVX512BITALG__)
+template<>
+inline void Encode<3>(
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
+)
+{
+	constexpr std::uint64_t LSB8          = 0x0101010101010101UL;
+
+	std::size_t i = 0;
+	for( ; i < Length; i += 8 )
+	{
+		// Reverse bits in each byte and convert it into an AVX512 mask,
+		// all in one instruction.
+		const __mmask64 Mask = _mm512_bitshuffle_epi64_mask(
+			_mm512_set1_epi64(*(const std::uint64_t*)&Input[i]),
+			_mm512_set_epi64(
+				0x00'01'02'03'04'05'06'07 + LSB8 * 0x38, // Byte 7
+				0x00'01'02'03'04'05'06'07 + LSB8 * 0x30, // Byte 6
+				0x00'01'02'03'04'05'06'07 + LSB8 * 0x28, // Byte 5
+				0x00'01'02'03'04'05'06'07 + LSB8 * 0x20, // Byte 4
+				0x00'01'02'03'04'05'06'07 + LSB8 * 0x18, // Byte 3
+				0x00'01'02'03'04'05'06'07 + LSB8 * 0x10, // Byte 2
+				0x00'01'02'03'04'05'06'07 + LSB8 * 0x08, // Byte 1
+				0x00'01'02'03'04'05'06'07 + LSB8 * 0x00  // Byte 0
+			)
+		);
+		// Use 64-bit mask to create 64 ascii-bytes(8 encoded bytes)
+		// by picking between '0' and '1' bytes
+		const __m512i Ascii = _mm512_mask_blend_epi8(
+			Mask, _mm512_set1_epi8('0'), _mm512_set1_epi8('1')
+		);
+		_mm512_storeu_si512(&Output[i], Ascii);
+	}
+
+	Encode<2>(Input + i * 8, Output + i * 8, Length % 8);
+}
+#elif defined(__AVX512F__) && defined(__AVX512BW__)
 // Eight at a time
 template<>
 inline void Encode<3>(
