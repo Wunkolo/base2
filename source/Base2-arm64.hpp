@@ -1,4 +1,6 @@
 /// Encoding
+#include <cstdint>
+#include <cstddef>
 #include <arm_neon.h>
 
 namespace
@@ -20,31 +22,28 @@ inline void Encode<0>(
 )
 {
 	// Least significant bit in an 8-bit integer
-	constexpr std::uint64_t LSB8       = 0x0101010101010101UL;
+	const uint8x8_t MSB8 = vdup_n_u8(0b10000000);
 	// Constant bits for ascii '0' and '1'
-	constexpr std::uint64_t BinAsciiBasis = LSB8 * '0';
-#if defined (__BMI2__)
+	const uint8x8_t BinAsciiBasis = vdup_n_u8('0');
+	const uint64x1_t UniqueBit  = { 0x0102040810204080UL };
+	const uint64x1_t CarryShift = { 0x7F7E7C7870604000UL };
 	for( std::size_t i = 0; i < Length; ++i )
 	{
-		Output[i] = __builtin_bswap64(
-			_pdep_u64(
-				static_cast<std::uint64_t>(Input[i]), LSB8
-			) | BinAsciiBasis
-		);
+		// Broadcast byte across 8 byte lanes
+		uint8x8_t Word = vdup_n_u8(Input[i]);
+		// Mask unique bits in each byte
+		Word = vand_u8(Word, vreinterpret_u8_u64(UniqueBit));
+		// Shift unique bit to upper bit of each 8-bit lane
+		Word = vadd_u8(Word, vreinterpret_u8_u64(CarryShift));
+		// Mask upper bit
+		Word = vand_u8(Word, MSB8);
+		// Shift it back down
+		Word = vshr_n_u8(Word, 7u);
+		// binary-or with '0'
+		Word = vorr_u8(Word, BinAsciiBasis);
+		// store
+		vst1_u64(Output + i, vreinterpret_u64_u8(Word));
 	}
-#else
-	for( std::size_t i = 0; i < Length; ++i )
-	{
-		constexpr std::uint64_t UniqueBit  = 0x0102040810204080UL;
-		constexpr std::uint64_t CarryShift = 0x7F7E7C7870604000UL;
-		constexpr std::uint64_t MSB8       = LSB8 << 7u;
-		Output[i] = ((((((
-			static_cast<std::uint64_t>(Input[i])
-			* LSB8			) & UniqueBit		)
-			+ CarryShift	) & MSB8			)
-			>> 7			) | BinAsciiBasis	);
-	}
-#endif
 }
 
 // Two at a time
@@ -135,9 +134,6 @@ inline void Decode<0>(
 	{
 		std::uint8_t Binary = 0;
 		const std::uint64_t ASCII = __builtin_bswap64(Input[i]);
-	#if defined(__BMI2__)
-		Binary = _pext_u64(ASCII, 0x0101010101010101UL);
-	#else
 		std::uint64_t Mask = 0x0101010101010101UL;
 		for( std::uint64_t CurBit = 1UL; Mask != 0; CurBit <<= 1 )
 		{
@@ -147,7 +143,6 @@ inline void Decode<0>(
 			}
 			Mask &= (Mask - 1UL);
 		}
-	#endif
 		Output[i] = Binary;
 	}
 }
