@@ -37,10 +37,12 @@ inline void Encode<0>(
 		Word = vadd_u8(Word, vreinterpret_u8_u64(CarryShift));
 		// Mask upper bit
 		Word = vand_u8(Word, MSB8);
+		// Shift and "or" it using binary addition
+		Word = vsra_n_u8(BinAsciiBasis, Word, 7);
 		// Shift it back down
-		Word = vshr_n_u8(Word, 7u);
+		// Word = vshr_n_u8(Word, 7u);
 		// Binary-or with '0'
-		Word = vorr_u8(Word, BinAsciiBasis);
+		// Word = vorr_u8(Word, BinAsciiBasis);
 		// Store
 		vst1_u64(Output + i, vreinterpret_u64_u8(Word));
 	}
@@ -70,10 +72,12 @@ inline void Encode<1>(
 		Word2 = vaddq_u8(Word2, vreinterpretq_u8_u64(CarryShift));
 		// Mask upper bit
 		Word2 = vandq_u8(Word2, MSB8);
+		// Shift and "or" it using binary addition
+		Word2 = vsraq_n_u8(BinAsciiBasis, Word2, 7);
 		// Shift it back down
-		Word2 = vshrq_n_u8(Word2, 7u);
+		// Word2 = vshrq_n_u8(Word2, 7u);
 		// binary-or with '0'
-		Word2 = vorrq_u8(Word2, BinAsciiBasis);
+		// Word2 = vorrq_u8(Word2, BinAsciiBasis);
 		// store
 		vst1q_u64(Output + i, vreinterpretq_u64_u8(Word2));
 	}
@@ -108,16 +112,18 @@ inline void Encode<2>(
 		// Shift unique bit to upper bit of each 8-bit lane
 		Word4.val[0] = vaddq_u8(Word4.val[0], vreinterpretq_u8_u64(CarryShift));
 		Word4.val[1] = vaddq_u8(Word4.val[1], vreinterpretq_u8_u64(CarryShift));
-		// Shift unique bit to upper bit of each 8-bit lane
 		// Mask upper bit
 		Word4.val[0] = vandq_u8(Word4.val[0], MSB8);
 		Word4.val[1] = vandq_u8(Word4.val[1], MSB8);
+		// Shift and "or" it using binary addition
+		Word4.val[0] = vsraq_n_u8(BinAsciiBasis, Word4.val[0], 7);
+		Word4.val[1] = vsraq_n_u8(BinAsciiBasis, Word4.val[1], 7);
 		// Shift it back down
-		Word4.val[0] = vshrq_n_u8(Word4.val[0], 7u);
-		Word4.val[1] = vshrq_n_u8(Word4.val[1], 7u);
+		//Word4.val[0] = vshrq_n_u8(Word4.val[0], 7u);
+		// Word4.val[1] = vshrq_n_u8(Word4.val[1], 7u);
 		// Binary-or with '0'
-		Word4.val[0] = vorrq_u8(Word4.val[0], BinAsciiBasis);
-		Word4.val[1] = vorrq_u8(Word4.val[1], BinAsciiBasis);
+		// Word4.val[0] = vorrq_u8(Word4.val[0], BinAsciiBasis);
+		// Word4.val[1] = vorrq_u8(Word4.val[1], BinAsciiBasis);
 		// Store
 		//vst1q_u8_x2((uint8_t*)(Output + i), Word4);
 		vst1q_u64(Output + i + 0, vreinterpretq_u64_u8(Word4.val[0]));
