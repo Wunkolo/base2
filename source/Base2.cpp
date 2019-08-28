@@ -2,6 +2,8 @@
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include "Base2-x86.hpp"
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#include "Base2-arm64.hpp"
 #else
 // Generic Implementation
 void Base2::Encode(
