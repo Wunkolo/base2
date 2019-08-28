@@ -39,9 +39,9 @@ inline void Encode<0>(
 		Word = vand_u8(Word, MSB8);
 		// Shift it back down
 		Word = vshr_n_u8(Word, 7u);
-		// binary-or with '0'
+		// Binary-or with '0'
 		Word = vorr_u8(Word, BinAsciiBasis);
-		// store
+		// Store
 		vst1_u64(Output + i, vreinterpret_u64_u8(Word));
 	}
 }
@@ -79,6 +79,52 @@ inline void Encode<1>(
 	}
 
 	Encode<0>(Input + i * 2, Output + i * 2, Length % 2);
+}
+
+// Four at a time
+template<>
+inline void Encode<2>(
+	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
+)
+{
+	// Least significant bit in an 8-bit integer
+	const uint8x16_t MSB8 = vdupq_n_u8(0b10000000);
+	// Constant bits for ascii '0' and '1'
+	const uint8x16_t BinAsciiBasis = vdupq_n_u8('0');
+	const uint64x2_t UniqueBit  = vdupq_n_u64(0x0102040810204080UL);
+	const uint64x2_t CarryShift = vdupq_n_u64(0x7F7E7C7870604000UL);
+	std::size_t i = 0;
+	for( ; i < Length; i += 4 )
+	{
+		const uint8x8x4_t Input4 = vld4_dup_u8(Input + i);
+		// Broadcast byte across 8 byte lanes
+		uint8x16x2_t Word4 = {
+			vcombine_u8(Input4.val[0], Input4.val[1]),
+			vcombine_u8(Input4.val[2], Input4.val[3])
+		};
+		// Mask unique bits in each byte
+		Word4.val[0] = vandq_u8(Word4.val[0], vreinterpretq_u8_u64(UniqueBit));
+		Word4.val[1] = vandq_u8(Word4.val[1], vreinterpretq_u8_u64(UniqueBit));
+		// Shift unique bit to upper bit of each 8-bit lane
+		Word4.val[0] = vaddq_u8(Word4.val[0], vreinterpretq_u8_u64(CarryShift));
+		Word4.val[1] = vaddq_u8(Word4.val[1], vreinterpretq_u8_u64(CarryShift));
+		// Shift unique bit to upper bit of each 8-bit lane
+		// Mask upper bit
+		Word4.val[0] = vandq_u8(Word4.val[0], MSB8);
+		Word4.val[1] = vandq_u8(Word4.val[1], MSB8);
+		// Shift it back down
+		Word4.val[0] = vshrq_n_u8(Word4.val[0], 7u);
+		Word4.val[1] = vshrq_n_u8(Word4.val[1], 7u);
+		// Binary-or with '0'
+		Word4.val[0] = vorrq_u8(Word4.val[0], BinAsciiBasis);
+		Word4.val[1] = vorrq_u8(Word4.val[1], BinAsciiBasis);
+		// Store
+		//vst1q_u8_x2((uint8_t*)(Output + i), Word4);
+		vst1q_u64(Output + i + 0, vreinterpretq_u64_u8(Word4.val[0]));
+		vst1q_u64(Output + i + 2, vreinterpretq_u64_u8(Word4.val[1]));
+	}
+
+	Encode<1>(Input + i * 4, Output + i * 4, Length % 4);
 }
 
 }
