@@ -21,28 +21,17 @@ inline void Encode<0>(
 	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
-	// Least significant bit in an 8-bit integer
-	const uint8x8_t MSB8 = vdup_n_u8(0b10000000);
 	// Constant bits for ascii '0' and '1'
 	const uint8x8_t BinAsciiBasis = vdup_n_u8('0');
-	const uint64x1_t UniqueBit  = { 0x0102040810204080UL };
-	const uint64x1_t CarryShift = { 0x7F7E7C7870604000UL };
+	const int8x8_t UniqueBit  = { 0, 1, 2, 3, 4, 5, 6, 7 };
 	for( std::size_t i = 0; i < Length; ++i )
 	{
 		// Broadcast byte across 8 byte lanes
 		uint8x8_t Word = vld1_dup_u8(Input + i);
-		// Mask unique bits in each byte
-		Word = vand_u8(Word, vreinterpret_u8_u64(UniqueBit));
-		// Shift unique bit to upper bit of each 8-bit lane
-		Word = vadd_u8(Word, vreinterpret_u8_u64(CarryShift));
-		// Mask upper bit
-		Word = vand_u8(Word, MSB8);
+		// Shift Unique bits into the upper bit of each byte
+		Word = vshl_u8(Word, UniqueBit);
 		// Shift and "or" it using binary addition
 		Word = vsra_n_u8(BinAsciiBasis, Word, 7);
-		// Shift it back down
-		// Word = vshr_n_u8(Word, 7u);
-		// Binary-or with '0'
-		// Word = vorr_u8(Word, BinAsciiBasis);
 		// Store
 		vst1_u64(Output + i, vreinterpret_u64_u8(Word));
 	}
@@ -54,31 +43,22 @@ inline void Encode<1>(
 	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
-	// Least significant bit in an 8-bit integer
-	const uint8x16_t MSB8 = vdupq_n_u8(0b10000000);
 	// Constant bits for ascii '0' and '1'
 	const uint8x16_t BinAsciiBasis = vdupq_n_u8('0');
-	const uint64x2_t UniqueBit  = vdupq_n_u64(0x0102040810204080UL);
-	const uint64x2_t CarryShift = vdupq_n_u64(0x7F7E7C7870604000UL);
+	const int8x16_t UniqueBit  = {
+		0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7
+	};
 	std::size_t i = 0;
 	for( ; i < Length; i += 2 )
 	{
 		const uint8x8x2_t Input2 = vld2_dup_u8(Input + i);
 		// Broadcast byte across 8 byte lanes
 		uint8x16_t Word2 = vcombine_u8(Input2.val[0], Input2.val[1]);
-		// Mask unique bits in each byte
-		Word2 = vandq_u8(Word2, vreinterpretq_u8_u64(UniqueBit));
-		// Shift unique bit to upper bit of each 8-bit lane
-		Word2 = vaddq_u8(Word2, vreinterpretq_u8_u64(CarryShift));
-		// Mask upper bit
-		Word2 = vandq_u8(Word2, MSB8);
+		// Shift Unique bits into the upper bit of each byte
+		Word2 = vshlq_u8(Word2, UniqueBit);
 		// Shift and "or" it using binary addition
 		Word2 = vsraq_n_u8(BinAsciiBasis, Word2, 7);
-		// Shift it back down
-		// Word2 = vshrq_n_u8(Word2, 7u);
-		// binary-or with '0'
-		// Word2 = vorrq_u8(Word2, BinAsciiBasis);
-		// store
+		// Store
 		vst1q_u64(Output + i, vreinterpretq_u64_u8(Word2));
 	}
 
@@ -91,12 +71,12 @@ inline void Encode<2>(
 	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
-	// Least significant bit in an 8-bit integer
-	const uint8x16_t MSB8 = vdupq_n_u8(0b10000000);
 	// Constant bits for ascii '0' and '1'
 	const uint8x16_t BinAsciiBasis = vdupq_n_u8('0');
-	const uint64x2_t UniqueBit  = vdupq_n_u64(0x0102040810204080UL);
-	const uint64x2_t CarryShift = vdupq_n_u64(0x7F7E7C7870604000UL);
+	const int8x16_t UniqueBit  = {
+		0, 1, 2, 3, 4, 5, 6, 7,
+		0, 1, 2, 3, 4, 5, 6, 7
+	};
 	std::size_t i = 0;
 	for( ; i < Length; i += 4 )
 	{
@@ -106,24 +86,12 @@ inline void Encode<2>(
 			vcombine_u8(Input4.val[0], Input4.val[1]),
 			vcombine_u8(Input4.val[2], Input4.val[3])
 		};
-		// Mask unique bits in each byte
-		Word4.val[0] = vandq_u8(Word4.val[0], vreinterpretq_u8_u64(UniqueBit));
-		Word4.val[1] = vandq_u8(Word4.val[1], vreinterpretq_u8_u64(UniqueBit));
-		// Shift unique bit to upper bit of each 8-bit lane
-		Word4.val[0] = vaddq_u8(Word4.val[0], vreinterpretq_u8_u64(CarryShift));
-		Word4.val[1] = vaddq_u8(Word4.val[1], vreinterpretq_u8_u64(CarryShift));
-		// Mask upper bit
-		Word4.val[0] = vandq_u8(Word4.val[0], MSB8);
-		Word4.val[1] = vandq_u8(Word4.val[1], MSB8);
+		// Shift Unique bits into the upper bit of each byte
+		Word4.val[0] = vshlq_u8(Word4.val[0], UniqueBit);
+		Word4.val[1] = vshlq_u8(Word4.val[1], UniqueBit);
 		// Shift and "or" it using binary addition
 		Word4.val[0] = vsraq_n_u8(BinAsciiBasis, Word4.val[0], 7);
 		Word4.val[1] = vsraq_n_u8(BinAsciiBasis, Word4.val[1], 7);
-		// Shift it back down
-		//Word4.val[0] = vshrq_n_u8(Word4.val[0], 7u);
-		// Word4.val[1] = vshrq_n_u8(Word4.val[1], 7u);
-		// Binary-or with '0'
-		// Word4.val[0] = vorrq_u8(Word4.val[0], BinAsciiBasis);
-		// Word4.val[1] = vorrq_u8(Word4.val[1], BinAsciiBasis);
 		// Store
 		//vst1q_u8_x2((uint8_t*)(Output + i), Word4);
 		vst1q_u64(Output + i + 0, vreinterpretq_u64_u8(Word4.val[0]));
