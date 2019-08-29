@@ -133,60 +133,56 @@ inline void Decode<0>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
+	const int8x8_t Shift = {
+		-7, -6, -5, -4, -3, -2, -1, 0
+	};
 	for( std::size_t i = 0; i < Length; ++i )
 	{
-		std::uint8_t Binary = 0;
-		const std::uint64_t ASCII = __builtin_bswap64(Input[i]);
-		std::uint64_t Mask = 0x0101010101010101UL;
-		for( std::uint64_t CurBit = 1UL; Mask != 0; CurBit <<= 1 )
-		{
-			if( ASCII & Mask & -Mask )
-			{
-				Binary |= CurBit;
-			}
-			Mask &= (Mask - 1UL);
-		}
-		Output[i] = Binary;
+		uint8x8_t ASCII = vld1_u8(
+			reinterpret_cast<const std::uint8_t*>(Input + i)
+		);
+		// Endian swap
+		ASCII = vrev64_u8(ASCII);
+		// Push each of the low bits to the high bit
+		ASCII = vshl_n_u8(ASCII, 7);
+		// Shift each bit into a unique position
+		ASCII = vshl_u8(ASCII, Shift);
+		// Horizontally reduce bytes, using "add" as "or" since each bit is
+		// uniquely positioned
+		Output[i] = vaddv_u8(ASCII);
 	}
 }
 
 // Two at a time
-#if defined(__SSE2__)
 template<>
 inline void Decode<1>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
-	constexpr std::uint64_t LSB8 = 0x0101010101010101UL;
+	const int8x16_t Shift = {
+		-7, -6, -5, -4, -3, -2, -1, 0,
+		-7, -6, -5, -4, -3, -2, -1, 0
+	};
 	std::size_t i = 0;
-	for( ; i < Length; i += 2 )
+	for(; i < Length; i += 2 )
 	{
-		// Load in 16 bytes of endian-swapped ascii bytes
-	#if defined(__SSSE3__)
-		__m128i ASCII = _mm_loadu_si128(
-			reinterpret_cast<const __m128i*>(&Input[i])
+		uint8x16_t ASCII = vld1q_u8(
+			reinterpret_cast<const std::uint8_t*>(Input + i)
 		);
-		ASCII = _mm_shuffle_epi8(
-			ASCII,
-			_mm_set_epi64x(
-				0x0001020304050607 + LSB8 * 0x08,
-				0x0001020304050607 + LSB8 * 0x00
-			)
-		);
-	#else
-		__m128i ASCII = _mm_set_epi64x(
-			__builtin_bswap64(Input[i + 1]), __builtin_bswap64(Input[i + 0])
-		);
-	#endif
-		// Shift lowest bit of each byte into sign bit
-		ASCII = _mm_slli_epi64(ASCII, 7);
-		// Compress each sign bit into a 16-bit word
-		*reinterpret_cast<std::uint16_t*>(&Output[i]) = _mm_movemask_epi8(ASCII);
+		// Endian swap
+		ASCII = vrev64q_u8(ASCII);
+		// Push each of the low bits to the high bit
+		ASCII = vshlq_n_u8(ASCII, 7);
+		// Shift each bit into a unique position
+		ASCII = vshlq_u8(ASCII, Shift);
+		// Horizontally reduce bytes, using "add" as "or" since each bit is
+		// uniquely positioned
+		Output[i + 0] = vaddv_u8(vget_low_u8(ASCII));
+		Output[i + 1] = vaddv_u8(vget_high_u8(ASCII));
 	}
 
 	Decode<0>(Input + i * 2, Output + i * 2, Length % 2);
 }
-#endif
 
 }
 
