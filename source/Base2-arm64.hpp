@@ -134,15 +134,13 @@ inline void Decode<0>(
 )
 {
 	const int8x8_t Shift = {
-		-7, -6, -5, -4, -3, -2, -1, 0
+		0, -1, -2, -3, -4, -5, -6, -7
 	};
 	for( std::size_t i = 0; i < Length; ++i )
 	{
 		uint8x8_t ASCII = vld1_u8(
 			reinterpret_cast<const std::uint8_t*>(Input + i)
 		);
-		// Endian swap
-		ASCII = vrev64_u8(ASCII);
 		// Push each of the low bits to the high bit
 		ASCII = vshl_n_u8(ASCII, 7);
 		// Shift each bit into a unique position
@@ -160,8 +158,8 @@ inline void Decode<1>(
 )
 {
 	const int8x16_t Shift = {
-		-7, -6, -5, -4, -3, -2, -1, 0,
-		-7, -6, -5, -4, -3, -2, -1, 0
+		0, -1, -2, -3, -4, -5, -6, -7,
+		0, -1, -2, -3, -4, -5, -6, -7
 	};
 	std::size_t i = 0;
 	for(; i < Length; i += 2 )
@@ -169,8 +167,6 @@ inline void Decode<1>(
 		uint8x16_t ASCII = vld1q_u8(
 			reinterpret_cast<const std::uint8_t*>(Input + i)
 		);
-		// Endian swap
-		ASCII = vrev64q_u8(ASCII);
 		// Push each of the low bits to the high bit
 		ASCII = vshlq_n_u8(ASCII, 7);
 		// Shift each bit into a unique position
