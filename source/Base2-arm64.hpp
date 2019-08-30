@@ -133,9 +133,7 @@ inline void Decode<0>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
-	const int8x8_t Shift = {
-		0, -1, -2, -3, -4, -5, -6, -7
-	};
+	const int8x8_t Shift = { 0, -1, -2, -3, -4, -5, -6, -7 };
 	for( std::size_t i = 0; i < Length; ++i )
 	{
 		uint8x8_t ASCII = vld1_u8(
@@ -158,8 +156,7 @@ inline void Decode<1>(
 )
 {
 	const int8x16_t Shift = {
-		0, -1, -2, -3, -4, -5, -6, -7,
-		0, -1, -2, -3, -4, -5, -6, -7
+		0, -1, -2, -3, -4, -5, -6, -7, 0, -1, -2, -3, -4, -5, -6, -7
 	};
 	std::size_t i = 0;
 	for(; i < Length; i += 2 )
@@ -195,6 +192,39 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 {
 	std::size_t End = 0;
 	std::size_t i = 0;
+	// Check and compress 16 bytes at a time
+	for( ; i + 15 < Length; i += 16 )
+	{
+		// Read in 8 bytes at once
+		const uint8x16_t Word128 = vld1q_u8(Bytes + i);
+
+		// Check for valid bytes, in parallel
+		if(
+			vaddvq_s64(
+				vreinterpretq_s64_u8(
+					vceqq_u8(
+						vandq_u8(Word128, vdupq_n_u8(0xFE)),
+						vdupq_n_u8('0')
+					)
+				)
+			) == -2
+		)
+		{
+			// We have 8 valid ascii-binary bytes
+			vst1q_u8(Bytes + End, Word128);
+			End += 16;
+		}
+		else
+		{
+			// There is garbage
+			for( std::size_t k = 0; k < 16; ++k )
+			{
+				const std::uint8_t CurByte = Bytes[i + k];
+				if( (CurByte & 0xFE) != 0x30 ) continue;
+				Bytes[End++] = CurByte;
+			}
+		}
+	}
 	// Check and compress 8 bytes at a time
 	for( ; i + 7 < Length; i += 8 )
 	{
