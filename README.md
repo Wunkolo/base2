@@ -78,6 +78,20 @@ BMI2 + SSE + SSE2 + AVX2
 	11.8GiB 0:00:10 [1.25GiB/s] 
 ```
 
+[Raspberry Pi 3 Model B+](https://www.raspberrypi.org/products/raspberry-pi-3-model-b-plus/)
+
+Generic(64-bit SWAR method):
+```
+./base2 --wrap=0 /dev/urandom | pv > /dev/null
+	1.49GiB 0:00:10 [ 144MiB/s] 
+```
+
+NEON Acceleration
+```
+./base2 --wrap=0 /dev/urandom | pv > /dev/null
+	1.74GiB 0:00:10 [ 167MiB/s]
+```
+
 Not that you will ever need to convert to and from base-2 at these speeds but this is a fun little side project regardless. I just really like SIMD and BMI2 and stuff.
 
 # Icelake
