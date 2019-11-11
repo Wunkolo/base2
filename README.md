@@ -45,7 +45,6 @@ QWERTY
 
 Did I mention its fast:
 
-
 [i3-6100](https://en.wikichip.org/wiki/intel/core_i3/i3-6100)
 
 ```
@@ -76,6 +75,45 @@ BMI2 + SSE + SSE2 + AVX2
 ```
 ./base2 --wrap=0 /dev/urandom | pv > /dev/null
 	11.8GiB 0:00:10 [1.25GiB/s] 
+```
+
+[i9-7900x](https://en.wikichip.org/wiki/intel/core_i9/i9-7900x)
+
+```
+inxi -C
+CPU:       Topology: 10-Core model: Intel Core i9-7900X bits: 64 type: MT MCP L2 cache: 13.8 MiB
+           Speed: 4000 MHz min/max: 1200/4500 MHz Core speeds (MHz): 1: 4000 2: 4000 3: 4000 4: 4001 5: 4003 6: 4000 7: 4003
+           8: 4002 9: 4001 10: 3998 11: 3999 12: 4002 13: 4000 14: 4000 15: 4000 16: 4000 17: 4000 18: 4000 19: 4000 20: 4000
+```
+
+Generic(64-bit SWAR method):
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	34.4GiB 0:00:10 [3.44GiB/s] 
+```
+
+BMI2
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	35.3GiB 0:00:10 [3.53GiB/s] 
+```
+
+BMI2 + SSE + SSE2
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	46.3GiB 0:00:10 [4.70GiB/s] 
+```
+
+BMI2 + SSE + SSE2 + AVX2
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	46.9GiB 0:00:10 [4.73GiB/s] 
+```
+
+BMI2 + SSE + SSE2 + AVX2 + AVX512F + AVX512BW
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	44.5GiB 0:00:10 [4.47GiB/s] 
 ```
 
 [Raspberry Pi 3 Model B+](https://www.raspberrypi.org/products/raspberry-pi-3-model-b-plus/)
