@@ -120,14 +120,14 @@ BMI2 + SSE + SSE2 + AVX2 + AVX512F + AVX512BW
 
 Generic(64-bit SWAR method):
 ```
-./base2 --wrap=0 /dev/urandom | pv > /dev/null
-	1.49GiB 0:00:10 [ 144MiB/s] 
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	1.55GiB 0:00:10 [ 158MiB/s] 
 ```
 
 NEON Acceleration
 ```
-./base2 --wrap=0 /dev/urandom | pv > /dev/null
-	1.74GiB 0:00:10 [ 167MiB/s]
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	1.99GiB 0:00:10 [ 203MiB/s] 
 ```
 
 Not that you will ever need to convert to and from base-2 at these speeds but this is a fun little side project regardless. I just really like SIMD and BMI2 and stuff.
