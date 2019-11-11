@@ -55,26 +55,26 @@ CPU:       Topology: Dual Core model: Intel Core i3-6100 bits: 64 type: MT MCP L
 
 Generic(64-bit SWAR method):
 ```
-./base2 --wrap=0 /dev/urandom | pv > /dev/null
-	10.0GiB 0:00:10 [1.08GiB/s]
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	34.7GiB 0:00:10 [3.42GiB/s]
 ```
 
 BMI2
 ```
-./base2 --wrap=0 /dev/urandom | pv > /dev/null
-	11.1GiB 0:00:10 [1.11GiB/s]
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	39.2GiB 0:00:10 [4.00GiB/s]
 ```
 
 BMI2 + SSE + SSE2
 ```
-./base2 --wrap=0 /dev/urandom | pv > /dev/null
-	11.3GiB 0:00:10 [1.15GiB/s]
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	40.9GiB 0:00:10 [4.11GiB/s] 
 ```
 
 BMI2 + SSE + SSE2 + AVX2
 ```
-./base2 --wrap=0 /dev/urandom | pv > /dev/null
-	11.8GiB 0:00:10 [1.25GiB/s] 
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	52.9GiB 0:00:10 [5.27GiB/s]
 ```
 
 [i9-7900x](https://en.wikichip.org/wiki/intel/core_i9/i9-7900x)
