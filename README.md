@@ -116,6 +116,44 @@ BMI2 + SSE + SSE2 + AVX2 + AVX512F + AVX512BW
 	44.5GiB 0:00:10 [4.47GiB/s] 
 ```
 
+[i7-1065G7](https://en.wikichip.org/wiki/intel/core_i7/i7-1065g7)
+
+```
+inxi -C
+CPU:       Topology: Quad Core model: Intel Core i7-1065G7 bits: 64 type: MT MCP L2 cache: 8192 KiB 
+           Speed: 703 MHz min/max: 400/3900 MHz Core speeds (MHz): 1: 628 2: 873 3: 609 4: 771 5: 653 6: 890 7: 924 8: 898 
+```
+
+Generic(64-bit SWAR method):
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	43.4GiB 0:00:10 [4.37GiB/s] 
+```
+
+BMI2
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	43.4GiB 0:00:10 [4.40GiB/s] 
+```
+
+BMI2 + SSE + SSE2
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	60.3GiB 0:00:10 [6.10GiB/s] 
+```
+
+BMI2 + SSE + SSE2 + AVX2
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	59.5GiB 0:00:10 [6.10GiB/s]
+```
+
+BMI2 + SSE + SSE2 + AVX2 + AVX512F + AVX512BITALG
+```
+./base2 --wrap=0 /dev/zero | pv > /dev/null
+	61.3GiB 0:00:10 [6.13GiB/s] 
+```
+
 [Raspberry Pi 3 Model B+](https://www.raspberrypi.org/products/raspberry-pi-3-model-b-plus/)
 
 Generic(64-bit SWAR method):
