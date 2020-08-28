@@ -407,7 +407,28 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 	std::size_t End = 0;
 	std::size_t i = 0;
 
-	#if defined(__AVX512F__) && defined(__AVX512BW__)
+	#if defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VBMI2__)
+	// Check and compress 16 bytes at a time
+	for( ; i + 63 < Length; i += 64 )
+	{
+		// Read in 16 bytes at once
+		const __m512i Word512 = _mm512_loadu_si512(
+			reinterpret_cast<const __m512i*>(Bytes + i)
+		);
+
+		// Check for valid bytes, in parallel
+		const __mmask64 BinaryTest = _mm512_cmpeq_epi8_mask(
+			_mm512_and_si512(Word512, _mm512_set1_epi8(0xFE)),
+			_mm512_set1_epi8(0x30)
+		);
+		// Masked and compressed write
+		_mm512_mask_compressstoreu_epi8(
+			reinterpret_cast<__m512i*>(Bytes + End),
+			BinaryTest, Word512
+		);
+		End += __builtin_popcountll(_cvtmask64_u64(BinaryTest));
+	}
+	#elif defined(__AVX512F__) && defined(__AVX512BW__)
 	// Check and compress 16 bytes at a time
 	for( ; i + 63 < Length; i += 64 )
 	{
