@@ -1,6 +1,6 @@
 #pragma once
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 namespace Base2
 {
@@ -17,4 +17,4 @@ void Decode(
 // towards the front of the array, and returns the new length of the array
 std::size_t Filter(std::uint8_t Bytes[], std::size_t Length);
 
-}
+} // namespace Base2

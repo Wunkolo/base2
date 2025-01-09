@@ -1,7 +1,7 @@
 /// Encoding
-#include <cstdint>
-#include <cstddef>
 #include <arm_neon.h>
+#include <cstddef>
+#include <cstdint>
 
 namespace
 {
@@ -12,7 +12,7 @@ inline void Encode(
 	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
 )
 {
-	Encode<WidthExp2-1>(Input, Output, Length);
+	Encode<WidthExp2 - 1>(Input, Output, Length);
 }
 
 // Serial
@@ -23,7 +23,7 @@ inline void Encode<0>(
 {
 	// Constant bits for ascii '0' and '1'
 	const uint8x8_t BinAsciiBasis = vdup_n_u8('0');
-	const int8x8_t UniqueBit  = { 0, 1, 2, 3, 4, 5, 6, 7 };
+	const int8x8_t  UniqueBit     = {0, 1, 2, 3, 4, 5, 6, 7};
 	for( std::size_t i = 0; i < Length; ++i )
 	{
 		// Broadcast byte across 8 byte lanes
@@ -45,9 +45,8 @@ inline void Encode<1>(
 {
 	// Constant bits for ascii '0' and '1'
 	const uint8x16_t BinAsciiBasis = vdupq_n_u8('0');
-	const int8x16_t UniqueBit  = {
-		0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7
-	};
+	const int8x16_t  UniqueBit
+		= {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7};
 	std::size_t i = 0;
 	for( ; i < Length; i += 2 )
 	{
@@ -73,19 +72,16 @@ inline void Encode<2>(
 {
 	// Constant bits for ascii '0' and '1'
 	const uint8x16_t BinAsciiBasis = vdupq_n_u8('0');
-	const int8x16_t UniqueBit  = {
-		0, 1, 2, 3, 4, 5, 6, 7,
-		0, 1, 2, 3, 4, 5, 6, 7
-	};
+	const int8x16_t  UniqueBit
+		= {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7};
 	std::size_t i = 0;
 	for( ; i < Length; i += 4 )
 	{
 		const uint8x8x4_t Input4 = vld4_dup_u8(Input + i);
 		// Broadcast byte across 8 byte lanes
-		uint8x16x2_t Word4 = {
-			vcombine_u8(Input4.val[0], Input4.val[1]),
-			vcombine_u8(Input4.val[2], Input4.val[3])
-		};
+		uint8x16x2_t Word4
+			= {vcombine_u8(Input4.val[0], Input4.val[1]),
+			   vcombine_u8(Input4.val[2], Input4.val[3])};
 		// Shift Unique bits into the upper bit of each byte
 		Word4.val[0] = vshlq_u8(Word4.val[0], UniqueBit);
 		Word4.val[1] = vshlq_u8(Word4.val[1], UniqueBit);
@@ -93,7 +89,7 @@ inline void Encode<2>(
 		Word4.val[0] = vsraq_n_u8(BinAsciiBasis, Word4.val[0], 7);
 		Word4.val[1] = vsraq_n_u8(BinAsciiBasis, Word4.val[1], 7);
 		// Store
-		//vst1q_u8_x2((uint8_t*)(Output + i), Word4);
+		// vst1q_u8_x2((uint8_t*)(Output + i), Word4);
 		vst1q_u64(Output + i + 0, vreinterpretq_u64_u8(Word4.val[0]));
 		vst1q_u64(Output + i + 2, vreinterpretq_u64_u8(Word4.val[1]));
 	}
@@ -101,8 +97,7 @@ inline void Encode<2>(
 	Encode<1>(Input + i * 4, Output + i * 4, Length % 4);
 }
 
-}
-
+} // namespace
 
 void Base2::Encode(
 	const std::uint8_t Input[], std::uint64_t Output[], std::size_t Length
@@ -110,7 +105,6 @@ void Base2::Encode(
 {
 	::Encode<0xFFu>(Input, Output, Length);
 }
-
 
 /// Decoding
 
@@ -123,9 +117,8 @@ inline void Decode(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
-	Decode<WidthExp2-1>(Input, Output, Length);
+	Decode<WidthExp2 - 1>(Input, Output, Length);
 }
-
 
 // Serial
 template<>
@@ -133,12 +126,11 @@ inline void Decode<0>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
-	const int8x8_t Shift = { 0, -1, -2, -3, -4, -5, -6, -7 };
+	const int8x8_t Shift = {0, -1, -2, -3, -4, -5, -6, -7};
 	for( std::size_t i = 0; i < Length; ++i )
 	{
-		uint8x8_t ASCII = vld1_u8(
-			reinterpret_cast<const std::uint8_t*>(Input + i)
-		);
+		uint8x8_t ASCII
+			= vld1_u8(reinterpret_cast<const std::uint8_t*>(Input + i));
 		// Push each of the low bits to the high bit
 		ASCII = vshl_n_u8(ASCII, 7);
 		// Shift each bit into a unique position
@@ -155,15 +147,13 @@ inline void Decode<1>(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
 )
 {
-	const int8x16_t Shift = {
-		0, -1, -2, -3, -4, -5, -6, -7, 0, -1, -2, -3, -4, -5, -6, -7
-	};
+	const int8x16_t Shift
+		= {0, -1, -2, -3, -4, -5, -6, -7, 0, -1, -2, -3, -4, -5, -6, -7};
 	std::size_t i = 0;
-	for(; i < Length; i += 2 )
+	for( ; i < Length; i += 2 )
 	{
-		uint8x16_t ASCII = vld1q_u8(
-			reinterpret_cast<const std::uint8_t*>(Input + i)
-		);
+		uint8x16_t ASCII
+			= vld1q_u8(reinterpret_cast<const std::uint8_t*>(Input + i));
 		// Push each of the low bits to the high bit
 		ASCII = vshlq_n_u8(ASCII, 7);
 		// Shift each bit into a unique position
@@ -177,7 +167,7 @@ inline void Decode<1>(
 	Decode<0>(Input + i * 2, Output + i * 2, Length % 2);
 }
 
-}
+} // namespace
 
 void Base2::Decode(
 	const std::uint64_t Input[], std::uint8_t Output[], std::size_t Length
@@ -191,7 +181,7 @@ void Base2::Decode(
 std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 {
 	std::size_t End = 0;
-	std::size_t i = 0;
+	std::size_t i   = 0;
 	// Check and compress 16 bytes at a time
 	for( ; i + 15 < Length; i += 16 )
 	{
@@ -199,16 +189,10 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 		const uint8x16_t Word128 = vld1q_u8(Bytes + i);
 
 		// Check for valid bytes, in parallel
-		if(
-			vaddvq_s64(
-				vreinterpretq_s64_u8(
-					vceqq_u8(
-						vandq_u8(Word128, vdupq_n_u8(0xFE)),
-						vdupq_n_u8('0')
-					)
-				)
-			) == -2
-		)
+		if( vaddvq_s64(vreinterpretq_s64_u8(
+				vceqq_u8(vandq_u8(Word128, vdupq_n_u8(0xFE)), vdupq_n_u8('0'))
+			))
+			== -2 )
 		{
 			// We have 8 valid ascii-binary bytes
 			vst1q_u8(Bytes + End, Word128);
@@ -220,7 +204,8 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 			for( std::size_t k = 0; k < 16; ++k )
 			{
 				const std::uint8_t CurByte = Bytes[i + k];
-				if( (CurByte & 0xFE) != 0x30 ) continue;
+				if( (CurByte & 0xFE) != 0x30 )
+					continue;
 				Bytes[End++] = CurByte;
 			}
 		}
@@ -229,7 +214,8 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 	for( ; i + 7 < Length; i += 8 )
 	{
 		// Read in 8 bytes at once
-		const std::uint64_t Word64 = *reinterpret_cast<const std::uint64_t*>(Bytes + i);
+		const std::uint64_t Word64
+			= *reinterpret_cast<const std::uint64_t*>(Bytes + i);
 
 		// Check for valid bytes, in parallel
 		if( (Word64 & 0xFEFEFEFEFEFEFEFE) == 0x3030303030303030 )
@@ -244,7 +230,8 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 			for( std::size_t k = 0; k < 8; ++k )
 			{
 				const std::uint8_t CurByte = Bytes[i + k];
-				if( (CurByte & 0xFE) != 0x30 ) continue;
+				if( (CurByte & 0xFE) != 0x30 )
+					continue;
 				Bytes[End++] = CurByte;
 			}
 		}
@@ -253,7 +240,8 @@ std::size_t Base2::Filter(std::uint8_t Bytes[], std::size_t Length)
 	for( ; i < Length; ++i )
 	{
 		const std::uint8_t CurByte = Bytes[i];
-		if( (CurByte & 0xFE) != 0x30 ) continue;
+		if( (CurByte & 0xFE) != 0x30 )
+			continue;
 		Bytes[End++] = CurByte;
 	}
 	return End;
