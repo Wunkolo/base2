@@ -132,3 +132,33 @@ TEST_CASE("Odds x713", "[Base2]") {
     REQUIRE(CurSpan == "0000000100000000");
   }
 }
+
+TEST_CASE("0xAA x713", "[Base2]") {
+  std::vector<std::uint8_t> Input(713, 0xAA);
+  std::string Output;
+  Output.resize(Input.size() * 8);
+
+  Base2::Encode(Input.data(), reinterpret_cast<std::uint64_t *>(Output.data()),
+                Input.size());
+
+  const std::string_view OutputView(Output);
+  for (std::size_t i = 0; i < OutputView.size() - 16; i += 16) {
+    const std::string_view CurSpan = OutputView.substr(i, 16);
+    REQUIRE(CurSpan == "1010101010101010");
+  }
+}
+
+TEST_CASE("0x55 x713", "[Base2]") {
+  std::vector<std::uint8_t> Input(713, 0x55);
+  std::string Output;
+  Output.resize(Input.size() * 8);
+
+  Base2::Encode(Input.data(), reinterpret_cast<std::uint64_t *>(Output.data()),
+                Input.size());
+
+  const std::string_view OutputView(Output);
+  for (std::size_t i = 0; i < OutputView.size() - 16; i += 16) {
+    const std::string_view CurSpan = OutputView.substr(i, 16);
+    REQUIRE(CurSpan == "0101010101010101");
+  }
+}
